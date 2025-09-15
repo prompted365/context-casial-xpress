@@ -209,6 +209,8 @@ impl WebSocketHandler {
             "initialize" => self.handle_initialize(request).await?,
             "tools/list" => self.handle_tools_list(request).await?,
             "tools/call" => self.handle_tools_call(request, session_id).await?,
+            "resources/list" => self.handle_resources_list(request).await?,
+            "resources/read" => self.handle_resources_read(request).await?,
             "casial/debug" => self.handle_casial_debug(request, session_id).await?,
             "casial/perception/add" => self.handle_add_perception(request, session_id).await?,
             "casial/perception/remove" => {
@@ -262,96 +264,74 @@ impl WebSocketHandler {
         &self,
         request: mcp::JsonRpcRequest,
     ) -> Result<mcp::JsonRpcResponse> {
-        debug!("🔧 Listing available tools");
+        debug!("🔧 Listing available tools from registry");
 
-        let tools = serde_json::json!({
-            "tools": [
+        // Get all tools from registry (local + federated)
+        let all_tools = self.state.tool_registry.get_all_tools();
+        
+        let tools_json: Vec<serde_json::Value> = all_tools
+            .iter()
+            .map(|tool| {
+                serde_json::json!({
+                    "name": tool.name,
+                    "description": tool.description,
+                    "inputSchema": tool.input_schema,
+                    "outputSchema": tool.output_schema
+                })
+            })
+            .collect();
+
+        let response = serde_json::json!({
+            "tools": tools_json
+        });
+
+        Ok(mcp::create_success_response(request.id, response))
+    }
+
+    /// Handle resources/list method
+    async fn handle_resources_list(
+        &self,
+        request: mcp::JsonRpcRequest,
+    ) -> Result<mcp::JsonRpcResponse> {
+        debug!("📋 Listing available resources");
+
+        let resources = serde_json::json!({
+            "resources": [
                 {
-                    "name": "web_search_exa",
-                    "description": "Search the web with consciousness-aware context injection",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "query": {"type": "string"},
-                            "numResults": {"type": "number"},
-                            "projectPath": {"type": "string", "description": "Project path for context discovery"},
-                            "perceptionIds": {"type": "array", "items": {"type": "string"}}
-                        },
-                        "required": ["query"]
-                    }
-                },
-                {
-                    "name": "deep_researcher_start",
-                    "description": "Start comprehensive research with paradox-resilient methodology",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "instructions": {"type": "string"},
-                            "model": {"type": "string", "enum": ["exa-research", "exa-research-pro"]},
-                            "projectPath": {"type": "string"},
-                            "paradoxTolerance": {"type": "number", "minimum": 0, "maximum": 1}
-                        },
-                        "required": ["instructions"]
-                    }
-                },
-                {
-                    "name": "crawling_exa",
-                    "description": "Extract content from URLs with context awareness",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "url": {"type": "string"},
-                            "maxCharacters": {"type": "number"},
-                            "projectPath": {"type": "string"}
-                        },
-                        "required": ["url"]
-                    }
-                },
-                {
-                    "name": "linkedin_search_exa",
-                    "description": "Search LinkedIn profiles and companies with context injection",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "query": {"type": "string", "description": "LinkedIn search query (person name, company, job title)"},
-                            "searchType": {"type": "string", "enum": ["profiles", "companies", "all"], "description": "Type of LinkedIn content to search"},
-                            "numResults": {"type": "number", "description": "Number of results to return"},
-                            "projectPath": {"type": "string", "description": "Project context path"}
-                        },
-                        "required": ["query"]
-                    }
-                },
-                {
-                    "name": "company_research_exa",
-                    "description": "Research companies with mission-driven context coordination",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "companyName": {"type": "string", "description": "Name of the company to research"},
-                            "numResults": {"type": "number", "description": "Number of search results to return"},
-                            "projectPath": {"type": "string", "description": "Project context path"}
-                        },
-                        "required": ["companyName"]
-                    }
-                },
-                {
-                    "name": "casial_context_debug",
-                    "description": "Debug context injection and paradox handling",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "toolName": {"type": "string"},
-                            "args": {"type": "object"},
-                            "showParadoxes": {"type": "boolean", "default": true},
-                            "showPerceptions": {"type": "boolean", "default": true}
-                        },
-                        "required": ["toolName", "args"]
-                    }
+                    "uri": "mcp://catalog",
+                    "name": "Tool Catalog",
+                    "description": "Federated tool specifications and metadata",
+                    "mimeType": "application/json"
                 }
             ]
         });
 
-        Ok(mcp::create_success_response(request.id, tools))
+        Ok(mcp::create_success_response(request.id, resources))
+    }
+
+    /// Handle resources/read method
+    async fn handle_resources_read(
+        &self,
+        request: mcp::JsonRpcRequest,
+    ) -> Result<mcp::JsonRpcResponse> {
+        debug!("📖 Reading resource");
+
+        let uri = request.params.get("uri")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing URI parameter"))?;
+
+        match uri {
+            "mcp://catalog" => {
+                let catalog = self.state.tool_registry.generate_catalog();
+                Ok(mcp::create_success_response(request.id, catalog))
+            }
+            _ => Ok(mcp::create_error_response(
+                request.id,
+                -32601,
+                "Resource not found",
+                Some(serde_json::json!({"uri": uri}))
+            ))
+        }
     }
 
     /// Handle tools/call method with consciousness-aware coordination
@@ -371,12 +351,64 @@ impl WebSocketHandler {
             .cloned()
             .unwrap_or(serde_json::json!({}));
 
+        // Extract execution mode
+        let mode = args.get("mode")
+            .and_then(|v| v.as_str())
+            .unwrap_or("execute");
+
         info!(
-            "🔧 Executing tool: {} with consciousness coordination",
-            tool_name
+            "🔧 Executing tool: {} with consciousness coordination (mode: {})",
+            tool_name, mode
         );
 
-        // Get session perceptions
+        // Validate tool arguments against schema
+        if let Err(validation_errors) = self.state.tool_registry.validate_tool_arguments(tool_name, &args) {
+            return Ok(mcp::create_error_response(
+                request.id,
+                -32602,
+                "Invalid parameters",
+                Some(serde_json::json!({
+                    "validation_errors": validation_errors
+                })),
+            ));
+        }
+
+        // Try federation routing first
+        let federation_result = {
+            let federation_guard = self.state.federation_manager.read();
+            if let Some(federation_manager) = federation_guard.as_ref() {
+                use crate::federation::ExecutionMode;
+                
+                let execution_mode = match mode {
+                    "plan" => ExecutionMode::Plan,
+                    "hybrid" => ExecutionMode::Hybrid,
+                    _ => ExecutionMode::Execute,
+                };
+
+                Some(federation_manager.route_tool_call(tool_name, args.clone(), execution_mode).await)
+            } else {
+                None
+            }
+        };
+
+        if let Some(result) = federation_result {
+            match result {
+                Ok(result) => {
+                    let response_content = serde_json::json!({
+                        "content": [{
+                            "type": "text",
+                            "text": serde_json::to_string_pretty(&result)?
+                        }]
+                    });
+                    return Ok(mcp::create_success_response(request.id, response_content));
+                }
+                Err(e) => {
+                    warn!("Federation routing failed, falling back to local execution: {}", e);
+                }
+            }
+        }
+
+        // Fallback to local execution with consciousness coordination
         let active_perceptions = self
             .state
             .active_sessions
@@ -384,19 +416,16 @@ impl WebSocketHandler {
             .map(|s| s.active_perceptions.clone())
             .unwrap_or_default();
 
-        // Extract project path for context discovery
         let project_path = args
             .get("projectPath")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
 
-        // Extract paradox tolerance
         let paradox_tolerance = args
             .get("paradoxTolerance")
             .and_then(|v| v.as_f64())
             .unwrap_or(0.5);
 
-        // Build coordination request
         let environment = std::env::vars().collect();
 
         let coordination_request = CoordinationRequest {
@@ -408,23 +437,19 @@ impl WebSocketHandler {
             paradox_tolerance,
         };
 
-        // Perform consciousness-aware coordination
         let coordination_result = {
             let engine = self.state.casial_engine.write();
             engine.coordinate(coordination_request)?
         };
 
-        // Update session with coordination info
         if let Some(mut session) = self.state.active_sessions.get_mut(&session_id) {
             session.active_coordination_id = Some(Uuid::new_v4());
         }
 
-        // Execute the actual tool (simulated)
         let tool_result = self
             .execute_tool(tool_name, &coordination_result.modified_args)
             .await?;
 
-        // Combine coordination metadata with tool result
         let response_content = serde_json::json!({
             "content": [{
                 "type": "text",
@@ -537,7 +562,7 @@ impl WebSocketHandler {
             .and_then(|v| v.as_bool())
             .unwrap_or(true);
 
-        let show_perceptions = params
+        let _show_perceptions = params
             .get("showPerceptions")
             .and_then(|v| v.as_bool())
             .unwrap_or(true);

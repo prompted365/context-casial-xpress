@@ -12,7 +12,7 @@ use axum::{
 };
 use clap::{Parser, Subcommand};
 use dashmap::DashMap;
-use parking_lot::RwLock;
+use tokio::sync::RwLock;
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::signal;
 use tower_http::{
@@ -21,16 +21,21 @@ use tower_http::{
 use tracing::{info, warn, Level};
 use uuid::Uuid;
 
+mod client;
 mod config;
+mod federation;
 mod mcp;
 mod metrics;
 mod mission;
+mod registry;
 mod websocket;
 
 use casial_core::CasialEngine;
 use config::ServerConfig;
+use federation::McpFederationManager;
 use metrics::MetricsCollector;
 use mission::MissionManager;
+use registry::ToolRegistry;
 use websocket::WebSocketHandler;
 
 /// Context-Casial-Xpress: Consciousness-aware context coordination for AI systems
@@ -84,16 +89,34 @@ pub struct AppState {
     mission_manager: Arc<RwLock<MissionManager>>,
     metrics_collector: Arc<RwLock<MetricsCollector>>,
     active_sessions: Arc<DashMap<Uuid, websocket::WebSocketSession>>,
+    tool_registry: Arc<ToolRegistry>,
+    federation_manager: Arc<RwLock<Option<McpFederationManager>>>,
     config: Arc<ServerConfig>,
 }
 
 impl AppState {
     fn new(config: ServerConfig) -> Self {
+        // Initialize tool registry with local tools
+        let tool_registry = Arc::new(ToolRegistry::new());
+        if let Err(e) = tool_registry.seed_with_local_tools() {
+            tracing::error!("Failed to seed tool registry: {}", e);
+        }
+
+        // Initialize federation manager if enabled
+        let federation_manager = if config.federation.enabled {
+            let manager = McpFederationManager::new(config.federation.clone(), Arc::clone(&tool_registry));
+            Some(manager)
+        } else {
+            None
+        };
+
         Self {
             casial_engine: Arc::new(RwLock::new(CasialEngine::new())),
             mission_manager: Arc::new(RwLock::new(MissionManager::new())),
             metrics_collector: Arc::new(RwLock::new(MetricsCollector::new())),
             active_sessions: Arc::new(DashMap::new()),
+            tool_registry,
+            federation_manager: Arc::new(RwLock::new(federation_manager)),
             config: Arc::new(config),
         }
     }
@@ -159,6 +182,11 @@ async fn start_server(
     // Load mission if provided
     if let Some(mission_path) = mission_path {
         load_mission(&state, mission_path).await?;
+    }
+
+    // Initialize federation if enabled
+    if config.federation.enabled {
+        start_federation(&state).await?;
     }
 
     // Start metrics collection
@@ -229,6 +257,24 @@ async fn load_mission(state: &AppState, mission_path: PathBuf) -> Result<()> {
     }
 
     info!("✅ Mission configuration loaded successfully");
+    Ok(())
+}
+
+async fn start_federation(state: &AppState) -> Result<()> {
+    info!("🌐 Starting MCP Federation...");
+
+    // Initialize federation manager
+    {
+        let mut federation_opt = state.federation_manager.write();
+        if let Some(ref mut manager) = federation_opt.as_mut() {
+            manager.initialize().await?;
+            manager.connect_all().await.unwrap_or_else(|e| {
+                tracing::warn!("Some federation connections failed: {}", e);
+            });
+        }
+    }
+
+    info!("✅ MCP Federation started successfully");
     Ok(())
 }
 

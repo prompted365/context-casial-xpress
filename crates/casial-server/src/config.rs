@@ -13,6 +13,7 @@ pub struct ServerConfig {
     pub consciousness: ConsciousnessSettings,
     pub metrics: MetricsSettings,
     pub logging: LoggingSettings,
+    pub federation: FederationSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,6 +45,36 @@ pub struct LoggingSettings {
     pub file_output: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FederationSettings {
+    pub enabled: bool,
+    pub downstream_servers: Vec<DownstreamMcpServer>,
+    pub catalog_refresh_interval: u64,
+    pub spec_version_tracking: bool,
+    pub connection_timeout_ms: u64,
+    pub max_retries: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DownstreamMcpServer {
+    pub id: String,
+    pub name: String,
+    pub url: String,
+    pub connection_type: String, // "websocket" | "stdio"
+    pub enabled: bool,
+    pub timeout_ms: u64,
+    pub priority: u8, // For conflict resolution
+    pub auth: Option<McpAuth>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpAuth {
+    pub auth_type: String, // "header" | "query" | "websocket-subprotocol"
+    pub token: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+}
+
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
@@ -67,6 +98,14 @@ impl Default for ServerConfig {
                 level: "info".to_string(),
                 json_format: false,
                 file_output: None,
+            },
+            federation: FederationSettings {
+                enabled: false, // Disabled by default
+                downstream_servers: vec![],
+                catalog_refresh_interval: 300, // 5 minutes
+                spec_version_tracking: true,
+                connection_timeout_ms: 10000, // 10 seconds
+                max_retries: 3,
             },
         }
     }
