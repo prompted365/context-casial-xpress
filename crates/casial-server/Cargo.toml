@@ -32,6 +32,7 @@ serde_yaml = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
 tokio-tungstenite = { workspace = true, features = ["native-tls"] }
+tokio-stream = "0.1"
 
 # Web framework
 axum = { workspace = true }

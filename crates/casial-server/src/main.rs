@@ -7,7 +7,7 @@ use anyhow::Result;
 use axum::{
     extract::{ws::WebSocketUpgrade, State},
     response::IntoResponse,
-    routing::get,
+    routing::{get, post},
     Router,
 };
 use clap::{Parser, Subcommand};
@@ -24,6 +24,7 @@ use uuid::Uuid;
 mod client;
 mod config;
 mod federation;
+mod http_mcp;
 mod mcp;
 mod metrics;
 mod mission;
@@ -201,6 +202,8 @@ async fn start_server(
     let addr = SocketAddr::from(([0, 0, 0, 0], config.server.port));
     info!("🌐 Server listening on {}", addr);
     info!("    WebSocket endpoint: ws://{}/ws", addr);
+    info!("    HTTP/SSE MCP endpoint: http://{}/mcp", addr);
+    info!("    MCP config endpoint: http://{}/.well-known/mcp-config", addr);
     info!("    Metrics endpoint: http://{}/metrics", addr);
     info!("    Health endpoint: http://{}/health", addr);
 
@@ -379,6 +382,10 @@ async fn build_router(state: AppState) -> Result<Router> {
     let router = Router::new()
         // WebSocket endpoint for MCP communication
         .route("/ws", get(websocket_handler))
+        // HTTP/SSE MCP endpoint for Smithery integration
+        .route("/mcp", get(mcp_get_handler).post(mcp_post_handler).head(mcp_head_handler))
+        // Well-known MCP configuration endpoint
+        .route("/.well-known/mcp-config", get(http_mcp::well_known_config_handler))
         // Health check endpoint
         .route("/", get(health_check))
         .route("/health", get(health_check))
@@ -409,6 +416,28 @@ async fn websocket_handler(
     State(state): State<AppState>,
 ) -> impl IntoResponse {
     ws.on_upgrade(move |socket| WebSocketHandler::new(state).handle_connection(socket))
+}
+
+/// MCP HTTP GET handler (for SSE)
+async fn mcp_get_handler(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    http_mcp::mcp_handler(axum::http::Method::GET, State(state), None).await
+}
+
+/// MCP HTTP POST handler (for JSON-RPC)
+async fn mcp_post_handler(
+    State(state): State<AppState>,
+    body: String,
+) -> impl IntoResponse {
+    http_mcp::mcp_handler(axum::http::Method::POST, State(state), Some(body)).await
+}
+
+/// MCP HTTP HEAD handler (for health checks)
+async fn mcp_head_handler(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    http_mcp::mcp_handler(axum::http::Method::HEAD, State(state), None).await
 }
 
 /// Health check endpoint
