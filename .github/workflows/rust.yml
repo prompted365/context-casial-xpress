@@ -1,4 +1,4 @@
-name: Rust
+name: CI
 
 on:
   push:
@@ -10,13 +10,82 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  test:
+    name: Test Suite
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        rust: [stable, beta]
     steps:
     - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
+    - uses: dtolnay/rust-toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+    
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Cache cargo index
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Build workspace
+      run: cargo build --verbose --workspace
+    
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test --verbose --workspace
+    
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+      if: matrix.rust == 'stable'
+    
+    - name: Run clippy
+      run: cargo clippy --workspace -- -D warnings
+      if: matrix.rust == 'stable'
+    
+    - name: Check docs
+      run: cargo doc --workspace --no-deps
+      if: matrix.rust == 'stable'
+
+  wasm-check:
+    name: WASM Build Check
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@v1
+      with:
+        toolchain: stable
+        targets: wasm32-unknown-unknown
+    
+    - name: Install wasm-pack
+      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+    
+    - name: Build casial-core for WASM
+      run: |
+        cd crates/casial-core
+        cargo build --target wasm32-unknown-unknown --features wasm
+    
+    - name: Build casial-wasm
+      run: |
+        cd crates/casial-wasm
+        wasm-pack build --target web
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@v1
+      with:
+        toolchain: stable
+    
+    - name: Install cargo-audit
+      run: cargo install cargo-audit
+    
+    - name: Run security audit
+      run: cargo audit
