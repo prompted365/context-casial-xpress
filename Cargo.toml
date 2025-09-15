@@ -55,7 +55,7 @@ walkdir = "2.5"
 
 # Time and UUID
 chrono = { version = "0.4", features = ["serde"] }
-uuid = { version = "1.10", features = ["v4", "serde"] }
+uuid = { version = "1.10", features = ["v4", "serde", "js"] }
 
 # CLI and configuration
 clap = { version = "4.5", features = ["derive"] }
@@ -70,6 +70,9 @@ web-sys = "0.3"
 regex = "1.10"
 similar = "2.5"
 unicode-segmentation = "1.11"
+
+# Random number generation (needed for WASM support)
+getrandom = { version = "0.3", features = ["wasm_js"] }
 
 [profile.release]
 lto = true

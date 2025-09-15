@@ -37,6 +37,9 @@ anyhow = { workspace = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 wee_alloc = "0.4"
 
+# Fix getrandom for WASM targets
+getrandom = { workspace = true }
+
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 
@@ -44,4 +47,4 @@ wasm-bindgen-test = "0.3"
 default = ["console_error_panic_hook"]
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = ["-Os", "--enable-mutable-globals"]
+wasm-opt = false
