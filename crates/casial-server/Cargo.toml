@@ -17,7 +17,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Core casial functionality
-casial-core = { path = "../casial-core", version = "0.1.1" }
+casial-core = { path = "../casial-core", version = "0.1.2" }
 
 # Core utilities
 anyhow = { workspace = true }

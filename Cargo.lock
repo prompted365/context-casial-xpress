@@ -346,7 +346,7 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
 name = "casial-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "ahash",
  "anyhow",
@@ -367,7 +367,7 @@ dependencies = [
 
 [[package]]
 name = "casial-server"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "ahash",
  "anyhow",
@@ -401,7 +401,7 @@ dependencies = [
 
 [[package]]
 name = "casial-wasm"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "casial-core",
