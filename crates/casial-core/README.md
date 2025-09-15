@@ -1,6 +1,11 @@
-# Casial Core
+# casial-core
 
-**Consciousness-aware context coordination engine** - The foundational substrate for paradox-resilient context management.
+[![Crates.io](https://img.shields.io/crates/v/casial-core.svg)](https://crates.io/crates/casial-core)
+[![Documentation](https://docs.rs/casial-core/badge.svg)](https://docs.rs/casial-core)
+[![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/casial-core.svg)](#license)
+[![Downloads](https://img.shields.io/crates/d/casial-core.svg)](https://crates.io/crates/casial-core)
+
+**Consciousness-aware context coordination engine** - The foundational substrate for paradox-resilient AI agent context management and coordination.
 
 ## Overview
 
@@ -26,7 +31,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-casial-core = "1.0.0"
+casial-core = "0.1.3"
 ```
 
 Basic example:

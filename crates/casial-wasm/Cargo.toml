@@ -2,14 +2,16 @@
 name = "casial-wasm"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license-file = "../../LICENSE.md"
 authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
-description = "WASM bindings for universal consciousness-aware context coordination"
+documentation.workspace = true
 readme = "README.md"
-keywords.workspace = true
-categories.workspace = true
+description = "WASM bindings for universal consciousness-aware context coordination in web browsers and JavaScript environments"
+keywords = ["wasm", "webassembly", "browser", "javascript", "ai"]
+categories = ["wasm", "web-programming", "api-bindings"]
 
 [lib]
 crate-type = ["cdylib"]

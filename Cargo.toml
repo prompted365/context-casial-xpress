@@ -9,13 +9,16 @@ resolver = "2"
 [workspace.package]
 version = "0.1.3"
 edition = "2021"
+rust-version = "1.75.0"  # Specify minimum supported Rust version
 # Mixed licensing: casial-core uses MIT/Apache-2.0, others use Fair Use
 authors = ["Prompted LLC <hello@promptedllc.com>"]
 repository = "https://github.com/prompted365/context-casial-xpress"
 homepage = "https://promptedllc.com"
+documentation = "https://docs.rs/casial-core"
 description = "Consciousness-aware context coordination for AI agent systems - A Ubiquity OS component"
-keywords = ["ai", "context", "coordination", "consciousness", "mcp"]
-categories = ["development-tools", "web-programming", "api-bindings"]
+keywords = ["ai", "agents", "consciousness", "coordination", "mcp"]
+categories = ["development-tools", "web-programming", "api-bindings", "concurrency"]
+readme = "README.md"
 
 [workspace.dependencies]
 # Core serialization and error handling

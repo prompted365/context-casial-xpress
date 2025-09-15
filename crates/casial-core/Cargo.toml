@@ -2,13 +2,16 @@
 name = "casial-core"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license = "MIT OR Apache-2.0"
 authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
-description = "Consciousness-aware context coordination engine - The Casial substrate for paradox-resilient context management"
-keywords.workspace = true
-categories.workspace = true
+documentation.workspace = true
+readme = "README.md"
+description = "Consciousness-aware context coordination engine - The Casial substrate for paradox-resilient AI agent context management and coordination"
+keywords = ["ai", "agents", "consciousness", "coordination", "substrate"]
+categories = ["algorithms", "data-structures", "development-tools", "concurrency"]
 
 [dependencies]
 # Core
