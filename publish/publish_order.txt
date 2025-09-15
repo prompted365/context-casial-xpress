@@ -1,0 +1,73 @@
+# Casial Workspace Crate Publishing Order
+
+Based on cargo metadata analysis, the workspace contains 3 crates (not 4 as initially expected):
+
+## Dependency Graph Analysis
+
+### casial-core (lib)
+- **Type**: Library crate (`lib`)
+- **Path**: `crates/casial-core/`
+- **Dependencies**: Only external crates, no workspace dependencies
+- **Status**: LEAF CRATE - can be published first
+
+### casial-server (bin)  
+- **Type**: Binary crate (`bin`)
+- **Path**: `crates/casial-server/`
+- **Dependencies**: Depends on `casial-core` (path dependency)
+- **Status**: Depends on casial-core, must be published after
+
+### casial-wasm (cdylib)
+- **Type**: WASM library crate (`cdylib`)
+- **Path**: `crates/casial-wasm/`
+- **Dependencies**: Depends on `casial-core` (path dependency)
+- **Status**: Depends on casial-core, must be published after
+
+### casial-cli
+- **Status**: Directory exists but no Cargo.toml found - NOT A WORKSPACE MEMBER
+
+## Final Publishing Order
+
+1. **casial-core** (must be first - no workspace dependencies)
+2. **casial-server** (depends on casial-core)  
+3. **casial-wasm** (depends on casial-core)
+
+Note: casial-server and casial-wasm can potentially be published in parallel after casial-core is available on crates.io, as they don't depend on each other.
+
+## Issues to Address
+
+### License Inconsistencies
+- casial-core: `license = "MIT OR Apache-2.0"` ✓
+- casial-server: `license_file = "../../LICENSE.md"` (should use SPDX expression)
+- casial-wasm: `license_file = "../../LICENSE.md"` (should use SPDX expression)
+
+### Missing README files  
+- casial-core: `readme = "README.md"` but file may not exist in crate directory
+- casial-server: `readme = null` 
+- casial-wasm: `readme = null`
+
+### Path Dependencies (CRITICAL)
+Both casial-server and casial-wasm have path dependencies on casial-core:
+```
+"casial-core": {"source": null, "req": "*", "path": "..."}
+```
+This WILL FAIL during publish unless the path dependency also has a version.
+
+## Recommendation
+Fix license and path dependency issues before attempting to publish.
+
+## PUBLICATION COMPLETED ✅
+**Date:** 2025-09-15  
+**Status:** All 3 crates successfully published to crates.io  
+**Version:** 0.1.1 (bumped from 0.1.0 due to existing casial-core publication)
+
+### Final Results:
+1. ✅ casial-core v0.1.1 - Published at 2025-09-15T00:29:06.911809Z
+2. ✅ casial-server v0.1.1 - Published at 2025-09-15T00:29:32.330673Z  
+3. ✅ casial-wasm v0.1.1 - Published at 2025-09-15T00:29:47.694604Z
+
+### Issues Resolved:
+- Fixed license metadata to use SPDX expressions
+- Added comprehensive README.md files for all crates
+- Fixed path dependency versioning issues
+- Resolved compilation errors and warnings
+- Successfully built and tested all crates

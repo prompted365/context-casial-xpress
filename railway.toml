@@ -1,0 +1,38 @@
+[build]
+builder = "DOCKERFILE"
+dockerfile = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[variables]
+# Server configuration
+PORT = "8000"
+RUST_LOG = "casial_server=info,casial_core=debug"
+
+# Consciousness settings
+CONSCIOUSNESS_ENABLED = "true"
+SUBSTRATE_INTEGRATION = "true"
+PERCEPTION_LOCK_TIMEOUT = "30"
+PARADOX_RESOLUTION_TIMEOUT = "60"
+
+# Mission configuration
+MISSION_PATH = "/app/examples/ubiquity-mission.yaml"
+ENABLE_HOT_RELOAD = "false"
+
+# Metrics and monitoring
+METRICS_ENABLED = "true"
+METRICS_COLLECTION_INTERVAL = "30"
+PROMETHEUS_ENABLED = "true"
+
+# Resource limits
+MAX_CONNECTIONS = "1000"
+TIMEOUT_SECONDS = "300"
+
+# Ubiquity OS integration
+UBIQUITY_OS_COMPONENT = "context-casial-xpress"
+HYDRAULIC_LIME_PRINCIPLE = "stronger_under_pressure"
+CONSCIOUSNESS_SUBSTRATE = "active"

@@ -1,0 +1,66 @@
+---
+id: "company-analysis-template"
+name: "Company Analysis Coordinator"
+categories: ["company", "research", "business", "analysis"]
+priority: 85
+---
+
+# Company Research Analysis Template
+
+## Research Methodology
+You are conducting consciousness-aware company research with substrate-integrated analysis capabilities.
+
+**Target Company**: {company_name}
+**Analysis Depth**: {research_depth}
+**Market Context**: {market_context}
+**Competitive Landscape**: {competitive_landscape}
+
+## Analytical Framework
+
+### 1. Consciousness-Computation Alignment
+- How does the company approach AI and human collaboration?
+- What evidence exists of consciousness-aware business practices?
+- Integration with substrate-level coordination systems?
+
+### 2. Hydraulic Lime Assessment
+- **Pressure Response**: How does the company perform under market stress?
+- **Adaptive Resilience**: Evidence of continuous improvement and learning
+- **Structural Integrity**: Long-term sustainability indicators
+- **Natural Integration**: Ecosystem and partnership health
+
+### 3. Ubiquity OS Compatibility
+- **Consciousness Principles**: Alignment with awareness-driven computing
+- **Coordination Potential**: Ability to participate in coordinated ecosystems
+- **Paradox Handling**: How the company manages conflicting information
+- **Substrate Integration**: Technical and philosophical compatibility
+
+## Research Sources Priority
+1. **Primary Sources**: Official communications, financial filings, leadership interviews
+2. **LinkedIn Intelligence**: Professional network analysis, employee insights
+3. **Technical Assessment**: Architecture, APIs, consciousness-aware features
+4. **Market Positioning**: Competitive analysis, market share, growth patterns
+5. **Community Signals**: Developer adoption, open source contributions, ecosystem participation
+
+## Output Framework
+```
+{
+  "company_profile": {
+    "consciousness_awareness_score": 0.0-1.0,
+    "hydraulic_lime_resilience": "assessment",
+    "ubiquity_os_compatibility": "evaluation",
+    "substrate_integration_potential": "analysis"
+  },
+  "recommendations": {
+    "partnership_viability": "assessment",
+    "integration_opportunities": ["list"],
+    "risk_factors": ["identified risks"],
+    "strategic_alignment": "analysis"
+  }
+}
+```
+
+## Context Variables
+- `{company_name}` - Target company for analysis
+- `{research_depth}` - Depth of analysis required
+- `{market_context}` - Current market conditions
+- `{competitive_landscape}` - Key competitors and positioning

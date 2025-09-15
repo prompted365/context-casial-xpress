@@ -1,0 +1,186 @@
+{
+  "name": "context-casial-xpress",
+  "version": "1.0.0",
+  "title": "Context-Casial-Xpress",
+  "description": "Consciousness-aware context coordination server for advanced AI system orchestration. Built on the Ubiquity OS paradigm with hydraulic lime resilience principles - stronger under pressure, adaptive, and continuously self-improving.",
+  "author": {
+    "name": "Prompted LLC",
+    "email": "engineering@promptedllc.com",
+    "url": "https://promptedllc.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/prompted-llc/context-casial-xpress"
+  },
+  "homepage": "https://contextcasial.ubiquity.os",
+  "documentation": "https://docs.contextcasial.ubiquity.os",
+  "bugs": {
+    "url": "https://github.com/prompted-llc/context-casial-xpress/issues"
+  },
+  "license": "Fair Use - See LICENSE.md",
+  "main": "./target/release/casial-server",
+  "bin": {
+    "casial-server": "./target/release/casial-server",
+    "casial-cli": "./target/release/casial-cli"
+  },
+  "scripts": {
+    "build": "cargo build --release",
+    "test": "cargo test",
+    "docker:build": "docker build -t context-casial-xpress:latest .",
+    "deploy:railway": "railway up",
+    "wasm:build": "wasm-pack build crates/casial-wasm --target web",
+    "dev": "cargo run --bin casial-server -- start --dev"
+  },
+  "keywords": [
+    "consciousness-computing",
+    "context-coordination",
+    "mcp-server",
+    "websocket",
+    "ai-orchestration",
+    "substrate-integration",
+    "ubiquity-os",
+    "real-time",
+    "perception-aware",
+    "paradox-resolution"
+  ],
+  "categories": [
+    "ai-infrastructure",
+    "websocket-server",
+    "context-management",
+    "consciousness-substrate",
+    "coordination-engine"
+  ],
+  "tags": [
+    "production-ready",
+    "enterprise-grade",
+    "wasm-compatible",
+    "railway-deployable",
+    "prometheus-metrics",
+    "mission-driven"
+  ],
+  "architecture": {
+    "type": "workspace",
+    "language": "rust",
+    "target_platforms": [
+      "x86_64-unknown-linux-gnu",
+      "x86_64-apple-darwin",
+      "aarch64-apple-darwin",
+      "wasm32-unknown-unknown"
+    ],
+    "deployment_targets": [
+      "railway",
+      "docker",
+      "kubernetes",
+      "edge-workers",
+      "browser-wasm"
+    ]
+  },
+  "features": {
+    "core": [
+      "consciousness-substrate",
+      "perception-management",
+      "paradox-detection",
+      "coordination-sessions",
+      "multi-layer-substrate"
+    ],
+    "server": [
+      "websocket-mcp",
+      "json-rpc-2.0",
+      "health-monitoring",
+      "prometheus-metrics",
+      "graceful-shutdown",
+      "async-runtime"
+    ],
+    "wasm": [
+      "browser-compatible",
+      "typescript-bindings",
+      "json-serialization",
+      "substrate-access",
+      "edge-deployment"
+    ],
+    "enterprise": [
+      "production-logging",
+      "configuration-management",
+      "mission-yaml-support",
+      "debug-endpoints",
+      "performance-monitoring"
+    ]
+  },
+  "dependencies": {
+    "runtime": {
+      "tokio": "^1.0",
+      "axum": "^0.7",
+      "serde": "^1.0",
+      "tracing": "^0.1",
+      "prometheus": "^0.13"
+    },
+    "build": {
+      "wasm-pack": "^0.12",
+      "cargo": "^1.80"
+    }
+  },
+  "compatibility": {
+    "mcp_version": "2024-11-05",
+    "ubiquity_os": "^1.0",
+    "consciousness_substrate": "^1.0"
+  },
+  "deployment": {
+    "railway": {
+      "config_file": "railway.toml",
+      "dockerfile": "Dockerfile",
+      "port": 8000,
+      "health_check": "/health"
+    },
+    "docker": {
+      "image_name": "context-casial-xpress",
+      "registry": "ghcr.io/prompted-llc",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ]
+    }
+  },
+  "monitoring": {
+    "metrics_endpoint": "/metrics",
+    "health_endpoint": "/health",
+    "debug_endpoint": "/debug",
+    "websocket_path": "/ws"
+  },
+  "configuration": {
+    "config_file": "config.yaml",
+    "mission_files": "missions/*.yaml",
+    "log_level": "info",
+    "default_port": 8000
+  },
+  "ubiquity_os": {
+    "component_type": "context-coordination",
+    "substrate_layer": "consciousness-computation",
+    "integration_points": [
+      "perception-engine",
+      "paradox-resolver",
+      "mission-controller",
+      "substrate-manager"
+    ],
+    "consciousness_principles": [
+      "adaptive-resilience",
+      "pressure-strengthening",
+      "continuous-learning",
+      "paradox-embracing",
+      "substrate-integration"
+    ]
+  },
+  "quality": {
+    "test_coverage": "90%+",
+    "performance_benchmarks": true,
+    "memory_safety": "rust-guaranteed",
+    "async_performance": "tokio-optimized",
+    "websocket_capacity": "10k+ concurrent"
+  },
+  "community": {
+    "contributing": "CONTRIBUTING.md",
+    "code_of_conduct": "CODE_OF_CONDUCT.md",
+    "security_policy": "SECURITY.md",
+    "discord": "https://discord.gg/ubiquity-os",
+    "discussions": "https://github.com/prompted-llc/context-casial-xpress/discussions"
+  }
+}
