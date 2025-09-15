@@ -434,8 +434,8 @@ mod tests {
         assert_eq!(registry.get_all_tools().len(), 0);
     }
 
-    #[test]
-    fn test_tool_registration() {
+    #[tokio::test]
+    async fn test_tool_registration() {
         let registry = ToolRegistry::new();
         
         let tool = ToolSpec {
@@ -450,15 +450,15 @@ mod tests {
             metadata: serde_json::json!({}),
         };
 
-        registry.register_tool(tool).unwrap();
+        registry.register_tool(tool).await.unwrap();
         
         let retrieved = registry.get_tool("test_tool").unwrap();
         assert_eq!(retrieved.name, "test_tool");
         assert!(!retrieved.spec_hash.is_empty());
     }
 
-    #[test]
-    fn test_tool_validation() {
+    #[tokio::test]
+    async fn test_tool_validation() {
         let registry = ToolRegistry::new();
         
         let tool = ToolSpec {
@@ -479,23 +479,37 @@ mod tests {
             metadata: serde_json::json!({}),
         };
 
-        registry.register_tool(tool).unwrap();
+        registry.register_tool(tool).await.unwrap();
 
         // Valid arguments
         let valid_args = serde_json::json!({"query": "test query"});
-        assert!(registry.validate_tool_arguments("test_tool", &valid_args).is_ok());
+        assert!(registry.validate_tool_arguments("test_tool", &valid_args).await.is_ok());
 
         // Invalid arguments (missing required field)
         let invalid_args = serde_json::json!({"other_field": "value"});
-        assert!(registry.validate_tool_arguments("test_tool", &invalid_args).is_err());
+        assert!(registry.validate_tool_arguments("test_tool", &invalid_args).await.is_err());
     }
 
-    #[test]
-    fn test_catalog_generation() {
+    #[tokio::test]
+    async fn test_catalog_generation() {
         let registry = ToolRegistry::new();
-        registry.seed_with_local_tools().unwrap();
         
-        let catalog = registry.generate_catalog();
+        // Add a test tool manually
+        let tool = ToolSpec {
+            name: "test_tool".to_string(),
+            description: "A test tool".to_string(),
+            input_schema: serde_json::json!({"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}),
+            output_schema: None,
+            source: ToolSource::Local,
+            spec_version: "1.0.0".to_string(),
+            spec_hash: String::new(),
+            last_updated: Utc::now(),
+            metadata: serde_json::json!({}),
+        };
+        
+        registry.register_tool(tool).await.unwrap();
+        
+        let catalog = registry.generate_catalog().await;
         assert!(catalog["catalog"]["tools"].is_array());
         assert!(catalog["catalog"]["summary"]["totalTools"].as_u64().unwrap() > 0);
     }

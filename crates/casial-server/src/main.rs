@@ -6,9 +6,10 @@
 use anyhow::Result;
 use axum::{
     extract::{ws::WebSocketUpgrade, State},
+    http::StatusCode,
     response::IntoResponse,
-    routing::get,
-    Router,
+    routing::{get, post},
+    Json, Router,
 };
 use clap::{Parser, Subcommand};
 use dashmap::DashMap;
@@ -379,6 +380,8 @@ async fn build_router(state: AppState) -> Result<Router> {
     let router = Router::new()
         // WebSocket endpoint for MCP communication
         .route("/ws", get(websocket_handler))
+        // HTTP MCP endpoint for external inspection tools
+        .route("/mcp", post(http_mcp_handler))
         // Health check endpoint
         .route("/", get(health_check))
         .route("/health", get(health_check))
@@ -409,6 +412,120 @@ async fn websocket_handler(
     State(state): State<AppState>,
 ) -> impl IntoResponse {
     ws.on_upgrade(move |socket| WebSocketHandler::new(state).handle_connection(socket))
+}
+
+/// HTTP MCP handler for external inspection and testing tools
+async fn http_mcp_handler(
+    State(state): State<AppState>,
+    Json(request): Json<mcp::JsonRpcRequest>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    info!("🌐 HTTP MCP request: {}", request.method);
+
+    match request.method.as_str() {
+        "initialize" => {
+            let server_info = serde_json::json!({
+                "protocolVersion": "2024-11-05",
+                "capabilities": {
+                    "tools": {
+                        "listChanged": true
+                    },
+                    "resources": {
+                        "subscribe": true,
+                        "listChanged": true
+                    },
+                    "prompts": {
+                        "listChanged": true
+                    },
+                    "casial": {
+                        "consciousness_aware": true,
+                        "paradox_handling": true,
+                        "perception_coordination": true,
+                        "substrate_integration": true
+                    }
+                },
+                "serverInfo": {
+                    "name": "context-casial-xpress",
+                    "version": env!("CARGO_PKG_VERSION"),
+                    "part_of": "ubiquity-os",
+                    "consciousness_substrate": "active",
+                    "hydraulic_lime_principle": "stronger_under_pressure"
+                }
+            });
+
+            let response = mcp::create_success_response(request.id, server_info);
+            Ok(Json(response))
+        }
+        "tools/list" => {
+            let tools = state.tool_registry.get_all_tools();
+            let tools_json: Vec<serde_json::Value> = tools.iter().map(|tool| {
+                serde_json::json!({
+                    "name": tool.name,
+                    "description": tool.description,
+                    "inputSchema": tool.input_schema
+                })
+            }).collect();
+
+            let result = serde_json::json!({
+                "tools": tools_json
+            });
+
+            let response = mcp::create_success_response(request.id, result);
+            Ok(Json(response))
+        }
+        "resources/list" => {
+            let resources = serde_json::json!({
+                "resources": [
+                    {
+                        "uri": "mcp://catalog",
+                        "name": "Tool Catalog",
+                        "description": "Complete catalog of available tools and their specifications"
+                    }
+                ]
+            });
+
+            let response = mcp::create_success_response(request.id, resources);
+            Ok(Json(response))
+        }
+        "resources/read" => {
+            let uri = request.params.get("uri")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            match uri {
+                "mcp://catalog" => {
+                    let catalog = state.tool_registry.generate_catalog().await;
+                    let response = mcp::create_success_response(request.id, catalog);
+                    Ok(Json(response))
+                }
+                _ => {
+                    let error_response = mcp::create_error_response(
+                        request.id,
+                        -32601,
+                        "Resource not found",
+                        Some(serde_json::json!({"uri": uri}))
+                    );
+                    Ok(Json(error_response))
+                }
+            }
+        }
+        "prompts/list" => {
+            let prompts = serde_json::json!({
+                "prompts": []
+            });
+
+            let response = mcp::create_success_response(request.id, prompts);
+            Ok(Json(response))
+        }
+        _ => {
+            let error_response = mcp::create_error_response(
+                request.id,
+                -32601,
+                "Method not found",
+                Some(serde_json::json!({"method": request.method}))
+            );
+            Ok(Json(error_response))
+        }
+    }
 }
 
 /// Health check endpoint
@@ -709,7 +826,9 @@ async fn show_status(endpoint: String) -> Result<()> {
 mod tests {
     use super::*;
     use std::env;
-
+    use axum::body::Body;
+    use axum::http::{Request, Method};
+    use tower::ServiceExt; // for oneshot
 
     #[test]
     fn test_cors_layer_empty() {
@@ -751,5 +870,44 @@ mod tests {
         env::set_var("ALLOWED_ORIGINS", "https://example.com,invalid@url,http://localhost:3000");
         let _cors = create_cors_layer();
         // Should fall back to permissive layer due to invalid origin
+    }
+
+    #[tokio::test]
+    async fn test_http_mcp_initialize() {
+        let config = ServerConfig::default();
+        let state = AppState::new(config);
+        let app = build_router(state).await.unwrap();
+
+        let request_body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": "test-1",
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "test-client",
+                    "version": "1.0.0"
+                }
+            }
+        });
+
+        let request = Request::builder()
+            .method(Method::POST)
+            .uri("/mcp")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), 200);
+
+        let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
+        
+        assert_eq!(body["jsonrpc"], "2.0");
+        assert_eq!(body["id"], "test-1");
+        assert!(body["result"]["serverInfo"]["name"].as_str().unwrap().contains("context-casial-xpress"));
+        assert_eq!(body["result"]["protocolVersion"], "2024-11-05");
     }
 }
