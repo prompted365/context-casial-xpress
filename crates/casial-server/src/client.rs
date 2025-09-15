@@ -77,7 +77,7 @@ impl McpClient {
 
     /// Connect to the downstream MCP server
     pub async fn connect(&mut self) -> Result<()> {
-        if self.is_connected() {
+        if self.is_connected().await {
             return Ok(());
         }
 
@@ -108,7 +108,7 @@ impl McpClient {
         let max_attempts = 30; // 3 seconds with 100ms intervals
         
         while attempts < max_attempts {
-            if self.is_connected() {
+            if self.is_connected().await {
                 return Ok(());
             }
             tokio::time::sleep(Duration::from_millis(100)).await;

@@ -237,7 +237,7 @@ async fn load_mission(state: &AppState, mission_path: PathBuf) -> Result<()> {
 
     // Load mission with project templates
     {
-        let engine = state.casial_engine.write();
+        let engine = state.casial_engine.write().await;
         let mut enhanced_mission = mission.clone();
 
         // Try to find project root and load templates
@@ -252,7 +252,7 @@ async fn load_mission(state: &AppState, mission_path: PathBuf) -> Result<()> {
 
     // Register with mission manager
     {
-        let mut manager = state.mission_manager.write();
+        let mut manager = state.mission_manager.write().await;
         manager.add_mission(mission)?;
     }
 
@@ -265,7 +265,7 @@ async fn start_federation(state: &AppState) -> Result<()> {
 
     // Initialize federation manager
     {
-        let mut federation_opt = state.federation_manager.write();
+        let mut federation_opt = state.federation_manager.write().await;
         if let Some(ref mut manager) = federation_opt.as_mut() {
             manager.initialize().await?;
             manager.connect_all().await.unwrap_or_else(|e| {
@@ -293,10 +293,10 @@ async fn start_metrics_collection(state: &AppState) -> Result<()> {
             interval.tick().await;
 
             // Collect metrics from various sources
-            let mut collector = metrics_collector.write();
+            let mut collector = metrics_collector.write().await;
 
             // Engine metrics
-            let coordination_history = casial_engine.read().get_coordination_history();
+            let coordination_history = casial_engine.read().await.get_coordination_history();
             collector.record_coordination_events(coordination_history.len());
 
             // Session metrics
@@ -391,7 +391,7 @@ async fn websocket_handler(
 /// Health check endpoint
 async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
     let session_count = state.active_sessions.len();
-    let engine_stats = state.casial_engine.read().get_coordination_history().len();
+    let engine_stats = state.casial_engine.read().await.get_coordination_history().len();
 
     axum::Json(serde_json::json!({
         "status": "healthy",
@@ -408,13 +408,13 @@ async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
 
 /// Prometheus metrics endpoint
 async fn metrics_handler(State(state): State<AppState>) -> impl IntoResponse {
-    let metrics = state.metrics_collector.read().export_prometheus();
+    let metrics = state.metrics_collector.read().await.export_prometheus();
     ([("content-type", "text/plain; version=0.0.4")], metrics)
 }
 
 /// Debug status endpoint
 async fn debug_status(State(state): State<AppState>) -> impl IntoResponse {
-    let casial_engine = state.casial_engine.read();
+    let casial_engine = state.casial_engine.read().await;
     let coordination_history = casial_engine.get_coordination_history();
     let paradox_registry = casial_engine.get_paradox_registry();
 
@@ -438,7 +438,7 @@ async fn debug_status(State(state): State<AppState>) -> impl IntoResponse {
 
 /// Debug missions endpoint
 async fn debug_missions(State(state): State<AppState>) -> impl IntoResponse {
-    let manager = state.mission_manager.read();
+    let manager = state.mission_manager.read().await;
     let missions = manager.get_all_missions();
 
     axum::Json(serde_json::json!({
@@ -476,7 +476,7 @@ async fn debug_sessions(State(state): State<AppState>) -> impl IntoResponse {
 
 /// Debug paradoxes endpoint
 async fn debug_paradoxes(State(state): State<AppState>) -> impl IntoResponse {
-    let paradoxes = state.casial_engine.read().get_paradox_registry();
+    let paradoxes = state.casial_engine.read().await.get_paradox_registry();
 
     axum::Json(serde_json::json!({
         "paradoxes": paradoxes.iter().map(|p| serde_json::json!({
@@ -493,8 +493,8 @@ async fn debug_paradoxes(State(state): State<AppState>) -> impl IntoResponse {
 async fn debug_perceptions(
     State(state): State<AppState>,
 ) -> Result<impl IntoResponse, (axum::http::StatusCode, String)> {
-    let _engine = state.casial_engine.read();
-    let manager = state.mission_manager.read();
+    let _engine = state.casial_engine.read().await;
+    let manager = state.mission_manager.read().await;
     let missions = manager.get_all_missions();
 
     // Get perceptions from all loaded missions
@@ -542,8 +542,8 @@ async fn debug_sprawl(
 
     // Analyze templates from the casial engine
     {
-        let _engine = state.casial_engine.read();
-        let manager = state.mission_manager.read();
+        let _engine = state.casial_engine.read().await;
+        let manager = state.mission_manager.read().await;
         let missions = manager.get_all_missions();
 
         // Get all loaded missions

@@ -322,7 +322,7 @@ impl WebSocketHandler {
 
         match uri {
             "mcp://catalog" => {
-                let catalog = self.state.tool_registry.generate_catalog();
+                let catalog = self.state.tool_registry.generate_catalog().await;
                 Ok(mcp::create_success_response(request.id, catalog))
             }
             _ => Ok(mcp::create_error_response(
@@ -362,7 +362,7 @@ impl WebSocketHandler {
         );
 
         // Validate tool arguments against schema
-        if let Err(validation_errors) = self.state.tool_registry.validate_tool_arguments(tool_name, &args) {
+        if let Err(validation_errors) = self.state.tool_registry.validate_tool_arguments(tool_name, &args).await {
             return Ok(mcp::create_error_response(
                 request.id,
                 -32602,
@@ -375,7 +375,7 @@ impl WebSocketHandler {
 
         // Try federation routing first
         let federation_result = {
-            let federation_guard = self.state.federation_manager.read();
+            let federation_guard = self.state.federation_manager.read().await;
             if let Some(federation_manager) = federation_guard.as_ref() {
                 use crate::federation::ExecutionMode;
                 
@@ -438,7 +438,7 @@ impl WebSocketHandler {
         };
 
         let coordination_result = {
-            let engine = self.state.casial_engine.write();
+            let engine = self.state.casial_engine.write().await;
             engine.coordinate(coordination_request)?
         };
 
@@ -585,7 +585,7 @@ impl WebSocketHandler {
 
         // Get engine statistics
         let engine_stats = {
-            let engine = self.state.casial_engine.read();
+            let engine = self.state.casial_engine.read().await;
             let coordination_history = engine.get_coordination_history();
             let paradox_registry = engine.get_paradox_registry();
 

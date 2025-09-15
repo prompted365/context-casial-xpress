@@ -32,6 +32,7 @@ pub enum ToolSource {
 }
 
 /// Tool registry for managing local and federated tools
+#[derive(Clone)]
 pub struct ToolRegistry {
     tools: Arc<DashMap<String, Arc<ToolSpec>>>,
     change_listeners: Arc<RwLock<Vec<tokio::sync::mpsc::UnboundedSender<RegistryChangeEvent>>>>,
@@ -133,11 +134,11 @@ impl ToolRegistry {
     }
 
     /// Remove a tool by name
-    pub fn remove_tool(&self, name: &str) -> Option<Arc<ToolSpec>> {
+    pub async fn remove_tool(&self, name: &str) -> Option<Arc<ToolSpec>> {
         if let Some((_, tool)) = self.tools.remove(name) {
             // Update metrics
             {
-                let mut metrics = self.metrics.write();
+                let mut metrics = self.metrics.write().await;
                 metrics.total_tools = self.tools.len();
                 metrics.local_tools = self
                     .tools
@@ -156,7 +157,7 @@ impl ToolRegistry {
     }
 
     /// Remove all tools from a specific source
-    pub fn remove_tools_from_source(&self, server_id: &str) -> Vec<String> {
+    pub async fn remove_tools_from_source(&self, server_id: &str) -> Vec<String> {
         let tools_to_remove: Vec<String> = self
             .tools
             .iter()
@@ -173,7 +174,7 @@ impl ToolRegistry {
 
         // Update metrics
         {
-            let mut metrics = self.metrics.write();
+            let mut metrics = self.metrics.write().await;
             metrics.total_tools = self.tools.len();
             metrics.local_tools = self
                 .tools
@@ -192,7 +193,7 @@ impl ToolRegistry {
     }
 
     /// Validate tool arguments against schema
-    pub fn validate_tool_arguments(
+    pub async fn validate_tool_arguments(
         &self,
         tool_name: &str,
         arguments: &serde_json::Value,
@@ -218,7 +219,7 @@ impl ToolRegistry {
 
             // Update error metrics
             {
-                let mut metrics = self.metrics.write();
+                let mut metrics = self.metrics.write().await;
                 metrics.schema_validation_errors += 1;
             }
 
@@ -229,7 +230,7 @@ impl ToolRegistry {
     }
 
     /// Generate MCP catalog resource
-    pub fn generate_catalog(&self) -> serde_json::Value {
+    pub async fn generate_catalog(&self) -> serde_json::Value {
         let tools: Vec<serde_json::Value> = self
             .tools
             .iter()
@@ -249,7 +250,7 @@ impl ToolRegistry {
             })
             .collect();
 
-        let metrics = self.metrics.read();
+        let metrics = self.metrics.read().await;
         serde_json::json!({
             "catalog": {
                 "version": "1.0",
@@ -266,17 +267,17 @@ impl ToolRegistry {
     }
 
     /// Add a change listener
-    pub fn add_change_listener(
+    pub async fn add_change_listener(
         &self,
         sender: tokio::sync::mpsc::UnboundedSender<RegistryChangeEvent>,
     ) {
-        let mut listeners = self.change_listeners.write();
+        let mut listeners = self.change_listeners.write().await;
         listeners.push(sender);
     }
 
     /// Get registry metrics
-    pub fn get_metrics(&self) -> RegistryMetrics {
-        self.metrics.read().clone()
+    pub async fn get_metrics(&self) -> RegistryMetrics {
+        self.metrics.read().await.clone()
     }
 
     /// Compute SHA-256 hash of tool specifications
@@ -302,23 +303,27 @@ impl ToolRegistry {
 
     /// Notify all change listeners
     fn notify_listeners(&self, event: RegistryChangeEvent) {
-        let listeners = self.change_listeners.read();
-        let mut dead_listeners = Vec::new();
+        let rt = tokio::runtime::Handle::current();
+        let self_clone = self.clone();
+        rt.spawn(async move {
+            let listeners = self_clone.change_listeners.read().await;
+            let mut dead_listeners = Vec::new();
 
-        for (index, sender) in listeners.iter().enumerate() {
-            if sender.send(event.clone()).is_err() {
-                dead_listeners.push(index);
+            for (index, sender) in listeners.iter().enumerate() {
+                if sender.send(event.clone()).is_err() {
+                    dead_listeners.push(index);
+                }
             }
-        }
 
-        // Remove dead listeners
-        if !dead_listeners.is_empty() {
-            drop(listeners);
-            let mut listeners = self.change_listeners.write();
-            for &index in dead_listeners.iter().rev() {
-                listeners.remove(index);
+            // Remove dead listeners
+            if !dead_listeners.is_empty() {
+                drop(listeners);
+                let mut listeners = self_clone.change_listeners.write().await;
+                for &index in dead_listeners.iter().rev() {
+                    listeners.remove(index);
+                }
             }
-        }
+        });
     }
 
     /// Initialize with local tools
@@ -385,7 +390,9 @@ impl ToolRegistry {
 
         // Register all local tools
         for tool in local_tools {
-            self.register_tool(tool)?;
+            if let Err(e) = tokio::runtime::Handle::current().block_on(self.register_tool(tool)) {
+                return Err(e);
+            }
         }
 
         tracing::info!("Seeded registry with {} local tools", self.tools.len());

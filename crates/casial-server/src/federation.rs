@@ -263,13 +263,13 @@ impl McpFederationManager {
             .ok_or_else(|| anyhow::anyhow!("Invalid tools format from server {}", server_id))?;
 
         // Remove existing tools from this server
-        registry.remove_tools_from_source(&server_id);
+        registry.remove_tools_from_source(&server_id).await;
 
         // Register new tools
         let mut registered_count = 0;
         for tool_data in tools {
             if let Ok(tool_spec) = Self::parse_tool_spec(tool_data, &server_id) {
-                if let Ok(()) = registry.register_tool(tool_spec) {
+                if let Ok(()) = registry.register_tool(tool_spec).await {
                     registered_count += 1;
                 }
             }
