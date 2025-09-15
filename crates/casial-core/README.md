@@ -31,7 +31,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-casial-core = "0.1.3"
+casial-core = "0.1.4"
 ```
 
 Basic example:

@@ -18,7 +18,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # Core casial functionality
-casial-core = { path = "../casial-core", version = "0.1.3" }
+casial-core = { path = "../casial-core", version = "0.1.4" }
 
 # WASM bindings
 wasm-bindgen = { workspace = true }
