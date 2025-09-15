@@ -312,42 +312,65 @@ async fn start_metrics_collection(state: &AppState) -> Result<()> {
 
 /// Create CORS layer with configurable allow-list
 fn create_cors_layer() -> tower_http::cors::CorsLayer {
-    use http::Method;
-    use tower_http::cors::CorsLayer;
+    use http::{header, Method};
+    use tower_http::cors::{Any, CorsLayer};
 
     // Read allowed origins from environment
     let allowed_origins = std::env::var("ALLOWED_ORIGINS").unwrap_or_default();
+    let allowed_origins = allowed_origins.trim();
 
+    // Case 1: Empty or unset -> permissive (log warning for prod)
     if allowed_origins.is_empty() {
         tracing::warn!(
             "ALLOWED_ORIGINS not set, using permissive CORS (not recommended for production)"
         );
-        CorsLayer::permissive()
-    } else {
-        tracing::info!("Configuring CORS with allowed origins: {}", allowed_origins);
+        return CorsLayer::permissive();
+    }
 
-        let origins: Result<Vec<_>, _> = allowed_origins
-            .split(',')
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.parse())
-            .collect();
+    // Case 2: Wildcard (*) -> use Any
+    if allowed_origins == "*" {
+        tracing::info!("ALLOWED_ORIGINS='*', allowing all origins");
+        return CorsLayer::new()
+            .allow_origin(Any)
+            .allow_headers([
+                header::CONTENT_TYPE,
+                header::AUTHORIZATION,
+                header::ACCEPT,
+            ])
+            .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+            .allow_credentials(false);
+    }
 
-        match origins {
-            Ok(origin_list) => CorsLayer::new()
+    // Case 3: Comma-separated origins -> parse into list
+    tracing::info!("Configuring CORS with allowed origins: {}", allowed_origins);
+
+    let origins: Result<Vec<_>, _> = allowed_origins
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.parse::<header::HeaderValue>().map_err(|e| e.to_string()))
+        .collect();
+
+    match origins {
+        Ok(origin_list) if !origin_list.is_empty() => {
+            tracing::info!("Successfully parsed {} origins", origin_list.len());
+            CorsLayer::new()
                 .allow_origin(origin_list)
                 .allow_headers([
-                    http::header::CONTENT_TYPE,
-                    http::header::AUTHORIZATION,
-                    http::header::ACCEPT,
+                    header::CONTENT_TYPE,
+                    header::AUTHORIZATION,
+                    header::ACCEPT,
                 ])
                 .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-                .allow_credentials(false),
-            Err(e) => {
-                tracing::error!("Failed to parse ALLOWED_ORIGINS: {}", e);
-                tracing::warn!("Falling back to permissive CORS");
-                CorsLayer::permissive()
-            }
+                .allow_credentials(false)
+        }
+        Ok(_) => {
+            tracing::warn!("ALLOWED_ORIGINS is empty after parsing, falling back to permissive CORS");
+            CorsLayer::permissive()
+        }
+        Err(e) => {
+            tracing::error!("Failed to parse ALLOWED_ORIGINS '{}': {}. Falling back to permissive CORS", allowed_origins, e);
+            CorsLayer::permissive()
         }
     }
 }
@@ -680,4 +703,53 @@ async fn show_status(endpoint: String) -> Result<()> {
     info!("📈 This would show live server metrics and status");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+
+    #[test]
+    fn test_cors_layer_empty() {
+        env::remove_var("ALLOWED_ORIGINS");
+        let _cors = create_cors_layer();
+        // Should create permissive layer without panicking
+    }
+
+    #[test]
+    fn test_cors_layer_wildcard() {
+        env::set_var("ALLOWED_ORIGINS", "*");
+        let _cors = create_cors_layer();
+        // Should create layer with Any origin without panicking
+    }
+
+    #[test]
+    fn test_cors_layer_valid_origins() {
+        env::set_var("ALLOWED_ORIGINS", "https://example.com,http://localhost:5173");
+        let _cors = create_cors_layer();
+        // Should create layer with specific origins without panicking
+    }
+
+    #[test]
+    fn test_cors_layer_invalid_origin() {
+        env::set_var("ALLOWED_ORIGINS", "invalid@url");
+        let _cors = create_cors_layer();
+        // Should fall back to permissive layer without panicking
+    }
+
+    #[test]
+    fn test_cors_layer_whitespace() {
+        env::set_var("ALLOWED_ORIGINS", "  *  ");
+        let _cors = create_cors_layer();
+        // Should handle whitespace and create Any origin layer
+    }
+
+    #[test]
+    fn test_cors_layer_mixed_valid_invalid() {
+        env::set_var("ALLOWED_ORIGINS", "https://example.com,invalid@url,http://localhost:3000");
+        let _cors = create_cors_layer();
+        // Should fall back to permissive layer due to invalid origin
+    }
 }
