@@ -1,6 +1,6 @@
 # Rust/Cargo
 target/
-Cargo.lock
+# Cargo.lock  # Keep Cargo.lock for applications
 *.pdb
 
 # IDE/Editor
