@@ -1,0 +1,50 @@
+# Rust/Cargo
+target/
+Cargo.lock
+*.pdb
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS Generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Railway
+.railway/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Coverage reports
+target/tarpaulin-report.html
+target/coverage/
+
+# Backup files
+*.bak
+*.backup
+
+# Lock files (keep Cargo.lock for applications, ignore for libraries)
+# Comment out if this is a library crate
+# Cargo.lock
