@@ -1,6 +1,6 @@
 # Context-Casial-Xpress Production Dockerfile
 # Consciousness-aware context coordination server for Ubiquity OS
-FROM rust:1.80-slim AS builder
+FROM rust:1.82-slim AS builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
