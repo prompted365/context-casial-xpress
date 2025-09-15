@@ -2,7 +2,7 @@
 name = "casial-wasm"
 version.workspace = true
 edition.workspace = true
-license = "MIT OR Apache-2.0"
+license-file = "../../LICENSE.md"
 authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
@@ -16,7 +16,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # Core casial functionality
-casial-core = { path = "../casial-core", version = "0.1.2" }
+casial-core = { path = "../casial-core", version = "0.1.3" }
 
 # WASM bindings
 wasm-bindgen = { workspace = true }
