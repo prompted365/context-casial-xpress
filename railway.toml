@@ -20,7 +20,7 @@ PERCEPTION_LOCK_TIMEOUT = "30"
 PARADOX_RESOLUTION_TIMEOUT = "60"
 
 # Mission configuration
-MISSION_PATH = "/app/examples/ubiquity-mission.yaml"
+# MISSION_PATH = "/app/examples/ubiquity-mission.yaml"  # Optional
 ENABLE_HOT_RELOAD = "false"
 
 # Metrics and monitoring

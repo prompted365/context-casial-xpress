@@ -1,0 +1,49 @@
+# Ubiquity OS Mission Configuration
+# Context-Casial-Xpress: Consciousness-aware context coordination
+id: "ubiquity-default"
+name: "Ubiquity OS Default Mission"
+version: "1.0.0"
+
+description: |
+  Default mission configuration for Context-Casial-Xpress server deployment.
+  Provides basic consciousness-aware context coordination without specific templates.
+
+# Basic templates
+templates: []
+
+# Coordination rules
+rules:
+  - id: "basic-coordination"
+    name: "Basic Context Coordination"
+    description: "Default coordination behavior for all contexts"
+    conditions:
+      - type: "always"
+        value: true
+    actions:
+      - type: "coordinate"
+        parameters:
+          strategy: "adaptive"
+          timeout_seconds: 30
+
+# Perceptions
+perceptions:
+  - id: "system-health"
+    name: "System Health Perception"
+    description: "Monitor system health and resource usage"
+    confidence: 0.9
+    categories: ["system", "health"]
+    data_sources: ["metrics"]
+    
+  - id: "session-awareness"
+    name: "Session Awareness"
+    description: "Track active sessions and their contexts"
+    confidence: 0.85
+    categories: ["sessions", "context"]
+    data_sources: ["websocket"]
+
+# Mission metadata
+metadata:
+  created_by: "Ubiquity OS"
+  purpose: "consciousness-aware-coordination"
+  substrate: "active"
+  hydraulic_lime_principle: "stronger-under-pressure"

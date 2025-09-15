@@ -62,6 +62,10 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=builder /app/target/release/casial-server /usr/local/bin/casial-server
 
+# Copy Railway startup script
+COPY railway-start.sh /usr/local/bin/railway-start.sh
+RUN chmod +x /usr/local/bin/railway-start.sh
+
 # Copy example configurations
 COPY examples/ ./examples/
 
@@ -74,7 +78,7 @@ USER casial:casial
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
+    CMD curl -f http://127.0.0.1:${PORT:-8000}/health || exit 1
 
 # Expose port
 EXPOSE 8000
@@ -98,4 +102,4 @@ LABEL ubiquity.os.substrate="consciousness-computation"
 LABEL ubiquity.os.principle="hydraulic-lime-stronger-under-pressure"
 
 # Start the application
-CMD ["casial-server", "start", "--port", "8000"]
+CMD ["/usr/local/bin/railway-start.sh"]
