@@ -48,8 +48,9 @@ mkdir missions && cp examples/missions/* missions/
 ./target/release/casial-server start --config config.yaml
 ```
 
-**Server starts at**: `http://localhost:8000`
-**WebSocket endpoint**: `ws://localhost:8000/ws`
+**Server starts at**: `http://localhost:8000`  
+**WebSocket endpoint**: `ws://localhost:8000/ws` (for MCP clients)  
+**HTTP MCP endpoint**: `http://localhost:8000/mcp` (for inspection tools)  
 **Health check**: `http://localhost:8000/health`
 
 > 📖 **Full deployment guide**: [docs/tutorials/quickstart.md](docs/tutorials/quickstart.md)
@@ -139,6 +140,49 @@ context-casial-xpress/
 ├── ⚖️ LICENSE-APACHE      # Apache 2.0 License (casial-core)
 ├── ⚖️ NOTICE              # Apache attribution requirements
 └── ⚖️ LICENSING.md        # Mixed licensing strategy explained
+```
+
+## 🔌 MCP Protocol Support
+
+Context-Casial-Xpress provides **dual-protocol MCP access** for maximum compatibility:
+
+### WebSocket MCP (`/ws`)
+- **Primary interface** for real-time MCP clients
+- Persistent connection with bidirectional messaging
+- Full MCP 2024-11-05 specification compliance
+- Consciousness-aware extensions for perception coordination
+
+### HTTP MCP (`/mcp`)
+- **Inspection-friendly** endpoint for external tools and testing
+- Standard JSON-RPC 2.0 over HTTP POST
+- Supports all core MCP methods: `initialize`, `tools/list`, `resources/list`, `resources/read`, `prompts/list`
+- Perfect for MCP server inspection and debugging tools
+
+**Example HTTP MCP usage**:
+```bash
+# Initialize MCP connection
+curl -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "1",
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2024-11-05",
+      "capabilities": {},
+      "clientInfo": {"name": "inspector", "version": "1.0.0"}
+    }
+  }'
+
+# List available tools
+curl -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "2", 
+    "method": "tools/list",
+    "params": {}
+  }'
 ```
 
 ## 🎯 Use Cases
