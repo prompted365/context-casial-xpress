@@ -326,7 +326,7 @@ impl ToolRegistry {
         });
     }
 
-    /// Initialize with local tools
+    /// Initialize with local tools (synchronous version)
     pub fn seed_with_local_tools(&self) -> Result<()> {
         // Define the built-in local tools
         let local_tools = vec![
@@ -388,14 +388,32 @@ impl ToolRegistry {
             // Add more built-in tools...
         ];
 
-        // Register all local tools
+        // Register all local tools synchronously using the blocking method
         for tool in local_tools {
-            if let Err(e) = tokio::runtime::Handle::current().block_on(self.register_tool(tool)) {
+            if let Err(e) = self.register_tool_sync(tool) {
                 return Err(e);
             }
         }
 
         tracing::info!("Seeded registry with {} local tools", self.tools.len());
+        Ok(())
+    }
+
+    /// Synchronous tool registration for initialization
+    fn register_tool_sync(&self, mut tool: ToolSpec) -> Result<()> {
+        // Generate hash if not provided
+        if tool.spec_hash.is_empty() {
+            tool.spec_hash = self.compute_tool_hash(&tool);
+        }
+        tool.last_updated = Utc::now();
+
+        // Insert into registry
+        let tool_name = tool.name.clone();
+        self.tools.insert(tool_name.clone(), Arc::new(tool));
+
+        // Log registration for debugging
+        tracing::debug!("Tool registered synchronously: {}", tool_name);
+        
         Ok(())
     }
 }
