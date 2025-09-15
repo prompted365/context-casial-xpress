@@ -1,0 +1,18 @@
+# Include necessary files for Rust build
+!Cargo.toml
+!Cargo.lock
+!crates/
+!examples/
+!railway-start.sh
+
+# Exclude development files
+target/
+.git/
+.github/
+docs/
+*.md
+!README.md
+.env*
+*.log
+node_modules/
+.DS_Store
