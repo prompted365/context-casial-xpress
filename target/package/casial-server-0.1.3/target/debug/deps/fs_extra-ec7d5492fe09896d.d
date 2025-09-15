@@ -1,0 +1,10 @@
+/Users/breydentaylor/context-casial-xpress/target/package/casial-server-0.1.3/target/debug/deps/fs_extra-ec7d5492fe09896d.d: /Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/lib.rs /Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/error.rs /Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/file.rs /Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/dir.rs
+
+/Users/breydentaylor/context-casial-xpress/target/package/casial-server-0.1.3/target/debug/deps/libfs_extra-ec7d5492fe09896d.rlib: /Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/lib.rs /Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/error.rs /Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/file.rs /Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/dir.rs
+
+/Users/breydentaylor/context-casial-xpress/target/package/casial-server-0.1.3/target/debug/deps/libfs_extra-ec7d5492fe09896d.rmeta: /Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/lib.rs /Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/error.rs /Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/file.rs /Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/dir.rs
+
+/Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/lib.rs:
+/Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/error.rs:
+/Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/file.rs:
+/Users/breydentaylor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs_extra-1.3.0/src/dir.rs:

@@ -1,0 +1,65 @@
+[package]
+name = "casial-server"
+version.workspace = true
+edition.workspace = true
+license-file = "../../LICENSE.md"
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "High-performance WebSocket MCP server with consciousness-aware context coordination"
+readme = "README.md"
+keywords.workspace = true
+categories.workspace = true
+
+[[bin]]
+name = "casial-server"
+path = "src/main.rs"
+
+[dependencies]
+# Core casial functionality
+casial-core = { path = "../casial-core", version = "0.1.3" }
+
+# Core utilities
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+
+# Async runtime and networking
+tokio = { workspace = true }
+futures = { workspace = true }
+tokio-tungstenite = { workspace = true }
+
+# Web framework
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+http = "1.0"
+
+# High-performance data structures
+ahash = { workspace = true }
+dashmap = { workspace = true }
+parking_lot = { workspace = true }
+
+# Observability
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+metrics = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
+
+# File system operations
+notify = { workspace = true }
+walkdir = { workspace = true }
+
+# Time and configuration
+chrono = { workspace = true }
+uuid = { workspace = true }
+config = { workspace = true }
+
+# CLI
+clap = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.10"
