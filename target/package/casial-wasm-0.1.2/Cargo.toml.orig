@@ -1,0 +1,45 @@
+[package]
+name = "casial-wasm"
+version.workspace = true
+edition.workspace = true
+license = "MIT OR Apache-2.0"
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "WASM bindings for universal consciousness-aware context coordination"
+readme = "README.md"
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# Core casial functionality
+casial-core = { path = "../casial-core", version = "0.1.2" }
+
+# WASM bindings
+wasm-bindgen = { workspace = true }
+js-sys = { workspace = true }
+web-sys = { workspace = true, features = ["console"] }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde-wasm-bindgen = "0.6"
+
+# Error handling
+anyhow = { workspace = true }
+
+# Console logging for WASM
+console_error_panic_hook = { version = "0.1", optional = true }
+wee_alloc = "0.4"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[features]
+default = ["console_error_panic_hook"]
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Os", "--enable-mutable-globals"]

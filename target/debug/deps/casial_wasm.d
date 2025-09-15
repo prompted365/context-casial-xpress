@@ -4,4 +4,4 @@
 
 crates/casial-wasm/src/lib.rs:
 
-# env-dep:CARGO_PKG_VERSION=0.1.0
+# env-dep:CARGO_PKG_VERSION=0.1.2
