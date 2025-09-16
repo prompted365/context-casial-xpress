@@ -9,6 +9,7 @@ use axum::{
     http::{header, Method, StatusCode},
     response::{sse::Event, IntoResponse, Response, Sse},
     Json,
+    body::Body,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -87,27 +88,25 @@ async fn handle_post(
 async fn handle_get_sse(
     _state: AppState,
 ) -> Result<Response, StatusCode> {
+    // For Smithery's Streamable HTTP, we need to return a simple SSE stream
+    // that will handle JSON-RPC messages sent as events
     let (tx, rx) = mpsc::channel::<Result<Event, Infallible>>(100);
     
-    // Send initial connection event
-    let _ = tx.send(Ok(Event::default()
-        .event("connected")
-        .data(json!({
-            "server": "context-casial-xpress",
-            "version": env!("CARGO_PKG_VERSION"),
-            "transport": "sse"
-        }).to_string())))
-        .await;
-
+    // Don't send any initial events - let the client initiate
+    // This matches the Streamable HTTP specification
+    
     // Convert receiver to stream
     let stream = ReceiverStream::new(rx);
     
-    Ok(Sse::new(stream)
+    // Set up SSE response with appropriate headers
+    let response = Sse::new(stream)
         .keep_alive(
             axum::response::sse::KeepAlive::new()
                 .interval(std::time::Duration::from_secs(30))
-                .text("keep-alive"),
-        )
+                .text(":\n"),  // Standard SSE keep-alive format
+        );
+    
+    Ok(response
         .into_response())
 }
 
@@ -315,7 +314,7 @@ pub async fn well_known_config_handler(
         "title": "Context-Casial-Xpress MCP Server",
         "description": "A consciousness-aware context coordination server for AI systems",
         "version": env!("CARGO_PKG_VERSION"),
-        "transport": ["sse", "websocket"],
+        "transport": ["streamable-http"],
         "configSchema": {
             "type": "object",
             "properties": {

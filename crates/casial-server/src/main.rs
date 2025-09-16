@@ -383,7 +383,7 @@ async fn build_router(state: AppState) -> Result<Router> {
         // WebSocket endpoint for MCP communication
         .route("/ws", get(websocket_handler))
         // HTTP/SSE MCP endpoint for Smithery integration
-        .route("/mcp", get(mcp_get_handler).post(mcp_post_handler).head(mcp_head_handler))
+        .route("/mcp", get(mcp_get_handler).post(mcp_post_handler).head(mcp_head_handler).options(mcp_options_handler))
         // Well-known MCP configuration endpoint
         .route("/.well-known/mcp-config", get(http_mcp::well_known_config_handler))
         // Health check endpoint
@@ -438,6 +438,13 @@ async fn mcp_head_handler(
     State(state): State<AppState>,
 ) -> impl IntoResponse {
     http_mcp::mcp_handler(axum::http::Method::HEAD, State(state), None).await
+}
+
+/// MCP HTTP OPTIONS handler (for CORS preflight)
+async fn mcp_options_handler(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    http_mcp::mcp_handler(axum::http::Method::OPTIONS, State(state), None).await
 }
 
 /// Health check endpoint
