@@ -15,6 +15,7 @@ templates:
     description: Global consciousness framework for Exa MCP orchestration with multi-agent patterns
     categories: [exa, framework, research]
     priority: 100
+    enabled: true
     content: |
       # Exa Multi-Agent Research Framework
       
@@ -44,6 +45,7 @@ templates:
     description: Search-specific templates and best practices for Exa web search operations
     categories: [exa, search]
     priority: 90
+    enabled: true
     content: |
       # Exa Search Tool Guidance
       
@@ -75,6 +77,7 @@ templates:
     description: Content extraction and crawling optimization templates for Exa
     categories: [exa, crawling, content]
     priority: 85
+    enabled: true
     content: |
       # Exa Content Retrieval & Crawling
       
@@ -103,6 +106,7 @@ templates:
     description: Standing query and monitoring configuration templates for Exa websets
     categories: [exa, websets, monitoring]
     priority: 80
+    enabled: true
     content: |
       # Exa Websets (Standing Queries)
       
@@ -132,6 +136,7 @@ templates:
     description: Research task management and synthesis templates for Exa investigations
     categories: [exa, research, synthesis]
     priority: 85
+    enabled: true
     content: |
       # Exa Research Task Orchestration
       
@@ -162,6 +167,7 @@ templates:
     description: Citation and evidence tracking templates for maintaining research integrity
     categories: [exa, citations, verification]
     priority: 75
+    enabled: true
     content: |
       # Exa Citation & Verification Standards
       

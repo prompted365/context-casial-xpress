@@ -236,7 +236,13 @@ async fn start_server(
 
     // Load mission if provided
     if let Some(mission_path) = mission_path {
-        load_mission(&state, mission_path).await?;
+        match load_mission(&state, mission_path).await {
+            Ok(_) => info!("✅ Mission loaded successfully"),
+            Err(e) => {
+                warn!("⚠️  Failed to load mission: {}. Server will continue without mission.", e);
+                // Continue without mission - server can still function
+            }
+        }
     }
 
     // Initialize federation if enabled

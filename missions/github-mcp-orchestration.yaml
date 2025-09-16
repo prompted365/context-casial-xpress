@@ -14,6 +14,7 @@ templates:
     description: Global consciousness framework for GitHub MCP orchestration
     categories: [github, framework, code]
     priority: 100
+    enabled: true
     content: |
       # GitHub MCP Orchestration Framework
       
@@ -42,6 +43,7 @@ templates:
     description: Search strategy templates for GitHub code and repository discovery
     categories: [github, search]
     priority: 90
+    enabled: true
     content: |
       # GitHub Search Guidance
       
@@ -62,6 +64,7 @@ templates:
     description: Code analysis and pattern recognition templates for GitHub repositories
     categories: [github, analysis]
     priority: 85
+    enabled: true
     content: |
       # GitHub Repository Analysis
       
