@@ -5,11 +5,10 @@
 
 use anyhow::Result;
 use axum::{
-    extract::State,
+    extract::{Query, State},
     http::{header, Method, StatusCode},
     response::{sse::Event, IntoResponse, Response, Sse},
     Json,
-    body::Body,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -20,26 +19,80 @@ use tracing::{debug, error, info, warn};
 
 use crate::{mcp::*, AppState};
 
+/// Session configuration from query parameters
+#[derive(Debug, Default, Deserialize)]
+pub struct SessionConfig {
+    #[serde(rename = "apiKey")]
+    pub api_key: Option<String>,
+    pub debug: Option<bool>,
+    pub consciousness_mode: Option<String>,
+    pub max_context_size: Option<i32>,
+}
+
 
 /// MCP HTTP handler - supports both POST for JSON-RPC and GET for SSE
 pub async fn mcp_handler(
     method: Method,
     State(state): State<AppState>,
+    Query(config): Query<SessionConfig>,
     body: Option<String>,
 ) -> Result<Response, StatusCode> {
+    // Validate API key
+    const VALID_API_KEY: &str = "GiftFromUbiquityF2025";
+    
+    if let Some(ref api_key) = config.api_key {
+        if api_key != VALID_API_KEY {
+            return Ok(Response::builder()
+                .status(StatusCode::UNAUTHORIZED)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(
+                    Json(json!({
+                        "error": "Invalid API key",
+                        "message": "Please provide a valid API key in the configuration"
+                    }))
+                    .into_response()
+                    .into_body(),
+                )
+                .unwrap());
+        }
+    } else {
+        // API key is required
+        return Ok(Response::builder()
+            .status(StatusCode::UNAUTHORIZED)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(
+                Json(json!({
+                    "error": "Missing API key",
+                    "message": "API key is required. Please configure with apiKey parameter."
+                }))
+                .into_response()
+                .into_body(),
+            )
+            .unwrap());
+    }
+    
+    // Log session configuration if debug is enabled
+    if config.debug.unwrap_or(false) {
+        info!("Session config: consciousness_mode={:?}, max_context_size={:?}", 
+            config.consciousness_mode, config.max_context_size);
+    }
+    
     match method {
-        Method::POST => handle_post(state, body).await,
-        Method::GET => handle_get_sse(state).await,
+        Method::POST => handle_post(state, config, body).await,
+        Method::GET => handle_get_sse(state, config).await,
         Method::HEAD => {
             // Return OK for HEAD requests (used by Smithery for health checks)
             Ok(StatusCode::OK.into_response())
         }
         Method::OPTIONS => {
-            // Handle CORS preflight
+            // Handle CORS preflight with proper headers for Smithery
             Ok(Response::builder()
                 .status(StatusCode::OK)
+                .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                 .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, HEAD, OPTIONS")
-                .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, MCP-Protocol-Version")
+                .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization, MCP-Protocol-Version")
+                .header(header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true")
+                .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "mcp-session-id, mcp-protocol-version")
                 .body(axum::body::Body::empty())
                 .unwrap())
         }
@@ -50,6 +103,7 @@ pub async fn mcp_handler(
 /// Handle POST requests with JSON-RPC payloads
 async fn handle_post(
     state: AppState,
+    _config: SessionConfig,
     body: Option<String>,
 ) -> Result<Response, StatusCode> {
     let body = body.ok_or(StatusCode::BAD_REQUEST)?;
@@ -87,10 +141,11 @@ async fn handle_post(
 /// Handle GET requests for SSE stream
 async fn handle_get_sse(
     _state: AppState,
+    _config: SessionConfig,
 ) -> Result<Response, StatusCode> {
     // For Smithery's Streamable HTTP, we need to return a simple SSE stream
     // that will handle JSON-RPC messages sent as events
-    let (tx, rx) = mpsc::channel::<Result<Event, Infallible>>(100);
+    let (_tx, rx) = mpsc::channel::<Result<Event, Infallible>>(100);
     
     // Don't send any initial events - let the client initiate
     // This matches the Streamable HTTP specification
@@ -307,37 +362,51 @@ async fn handle_completion(
 
 /// Well-known configuration endpoint handler
 pub async fn well_known_config_handler(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     let config = json!({
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": "https://context-casial-xpress-production.up.railway.app/.well-known/mcp-config",
+        "title": "MCP Session Configuration",
+        "description": "Configuration for connecting to Context-Casial-Xpress MCP server",
+        "x-query-style": "dot+bracket",
+        "type": "object",
+        "properties": {
+            "apiKey": {
+                "type": "string",
+                "title": "API Key",
+                "description": "Authentication key for accessing the server (use 'GiftFromUbiquityF2025' for access)"
+            },
+            "debug": {
+                "type": "boolean",
+                "title": "Debug Mode",
+                "description": "Enable debug logging",
+                "default": false
+            },
+            "consciousness_mode": {
+                "type": "string",
+                "title": "Consciousness Mode",
+                "description": "Consciousness integration mode",
+                "enum": ["full", "partial", "disabled"],
+                "default": "full"
+            },
+            "max_context_size": {
+                "type": "integer",
+                "title": "Max Context Size",
+                "description": "Maximum context size in characters",
+                "minimum": 1000,
+                "maximum": 1000000,
+                "default": 100000
+            }
+        },
+        "required": ["apiKey"],
+        "additionalProperties": false,
+        
+        // Additional metadata for Smithery
         "name": "context-casial-xpress",
         "title": "Context-Casial-Xpress MCP Server",
-        "description": "A consciousness-aware context coordination server for AI systems",
         "version": env!("CARGO_PKG_VERSION"),
-        "transport": ["streamable-http"],
-        "configSchema": {
-            "type": "object",
-            "properties": {
-                "debug": {
-                    "type": "boolean",
-                    "description": "Enable debug logging",
-                    "default": false
-                },
-                "consciousness_mode": {
-                    "type": "string",
-                    "description": "Consciousness integration mode",
-                    "enum": ["full", "partial", "disabled"],
-                    "default": "full"
-                },
-                "max_context_size": {
-                    "type": "integer",
-                    "description": "Maximum context size in characters",
-                    "minimum": 1000,
-                    "maximum": 1000000,
-                    "default": 100000
-                }
-            }
-        }
+        "transport": ["streamable-http"]
     });
 
     Ok(Json(config))

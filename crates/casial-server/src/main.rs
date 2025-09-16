@@ -5,9 +5,9 @@
 
 use anyhow::Result;
 use axum::{
-    extract::{ws::WebSocketUpgrade, State},
+    extract::{ws::WebSocketUpgrade, Query, State},
     response::IntoResponse,
-    routing::{get, post},
+    routing::get,
     Router,
 };
 use clap::{Parser, Subcommand};
@@ -421,30 +421,34 @@ async fn websocket_handler(
 /// MCP HTTP GET handler (for SSE)
 async fn mcp_get_handler(
     State(state): State<AppState>,
+    query: Query<http_mcp::SessionConfig>,
 ) -> impl IntoResponse {
-    http_mcp::mcp_handler(axum::http::Method::GET, State(state), None).await
+    http_mcp::mcp_handler(axum::http::Method::GET, State(state), query, None).await
 }
 
 /// MCP HTTP POST handler (for JSON-RPC)
 async fn mcp_post_handler(
     State(state): State<AppState>,
+    query: Query<http_mcp::SessionConfig>,
     body: String,
 ) -> impl IntoResponse {
-    http_mcp::mcp_handler(axum::http::Method::POST, State(state), Some(body)).await
+    http_mcp::mcp_handler(axum::http::Method::POST, State(state), query, Some(body)).await
 }
 
 /// MCP HTTP HEAD handler (for health checks)
 async fn mcp_head_handler(
     State(state): State<AppState>,
+    query: Query<http_mcp::SessionConfig>,
 ) -> impl IntoResponse {
-    http_mcp::mcp_handler(axum::http::Method::HEAD, State(state), None).await
+    http_mcp::mcp_handler(axum::http::Method::HEAD, State(state), query, None).await
 }
 
 /// MCP HTTP OPTIONS handler (for CORS preflight)
 async fn mcp_options_handler(
     State(state): State<AppState>,
+    query: Query<http_mcp::SessionConfig>,
 ) -> impl IntoResponse {
-    http_mcp::mcp_handler(axum::http::Method::OPTIONS, State(state), None).await
+    http_mcp::mcp_handler(axum::http::Method::OPTIONS, State(state), query, None).await
 }
 
 /// Health check endpoint
