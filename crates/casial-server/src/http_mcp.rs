@@ -122,10 +122,10 @@ pub async fn mcp_handler(
             Ok(Response::builder()
                 .status(StatusCode::OK)
                 .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-                .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, HEAD, OPTIONS")
-                .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization, MCP-Protocol-Version")
+                .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, OPTIONS")
+                .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization, Cache-Control, Accept, *")
                 .header(header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true")
-                .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "mcp-session-id, mcp-protocol-version")
+                .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "mcp-session-id, mcp-protocol-version, x-session-id")
                 .body(axum::body::Body::empty())
                 .unwrap())
         }
@@ -134,10 +134,10 @@ pub async fn mcp_handler(
             Ok(Response::builder()
                 .status(StatusCode::OK)
                 .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-                .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, HEAD, OPTIONS")
-                .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization, MCP-Protocol-Version")
+                .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, OPTIONS")
+                .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization, Cache-Control, Accept, *")
                 .header(header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true")
-                .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "mcp-session-id, mcp-protocol-version")
+                .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "mcp-session-id, mcp-protocol-version, x-session-id")
                 .body(axum::body::Body::empty())
                 .unwrap())
         }
@@ -222,10 +222,10 @@ async fn handle_get_sse(
     let mut sse_response = response.into_response();
     let headers = sse_response.headers_mut();
     headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
-    headers.insert(header::ACCESS_CONTROL_ALLOW_METHODS, HeaderValue::from_static("GET, POST, HEAD, OPTIONS"));
-    headers.insert(header::ACCESS_CONTROL_ALLOW_HEADERS, HeaderValue::from_static("Content-Type, Authorization, MCP-Protocol-Version"));
+    headers.insert(header::ACCESS_CONTROL_ALLOW_METHODS, HeaderValue::from_static("GET, POST, OPTIONS"));
+    headers.insert(header::ACCESS_CONTROL_ALLOW_HEADERS, HeaderValue::from_static("Content-Type, Authorization, Cache-Control, Accept, *"));
     headers.insert(header::ACCESS_CONTROL_ALLOW_CREDENTIALS, HeaderValue::from_static("true"));
-    headers.insert(header::ACCESS_CONTROL_EXPOSE_HEADERS, HeaderValue::from_static("mcp-session-id, mcp-protocol-version"));
+    headers.insert(header::ACCESS_CONTROL_EXPOSE_HEADERS, HeaderValue::from_static("mcp-session-id, mcp-protocol-version, x-session-id"));
     
     Ok(sse_response)
 }

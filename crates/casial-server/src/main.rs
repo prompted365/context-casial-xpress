@@ -376,7 +376,7 @@ async fn start_metrics_collection(state: &AppState) -> Result<()> {
 
 /// Create CORS layer with configurable allow-list
 fn create_cors_layer() -> tower_http::cors::CorsLayer {
-    use http::{header, Method};
+    use http::{header, HeaderName, Method};
     use tower_http::cors::{Any, CorsLayer};
 
     // Read allowed origins from environment
@@ -396,13 +396,14 @@ fn create_cors_layer() -> tower_http::cors::CorsLayer {
         tracing::info!("ALLOWED_ORIGINS='*', allowing all origins");
         return CorsLayer::new()
             .allow_origin(Any)
-            .allow_headers([
-                header::CONTENT_TYPE,
-                header::AUTHORIZATION,
-                header::ACCEPT,
-            ])
+            .allow_headers(Any)
             .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-            .allow_credentials(false);
+            .expose_headers([
+                HeaderName::from_static("mcp-session-id"),
+                HeaderName::from_static("mcp-protocol-version"),
+                HeaderName::from_static("x-session-id"),
+            ])
+            .allow_credentials(true);
     }
 
     // Case 3: Comma-separated origins -> parse into list
@@ -420,13 +421,14 @@ fn create_cors_layer() -> tower_http::cors::CorsLayer {
             tracing::info!("Successfully parsed {} origins", origin_list.len());
             CorsLayer::new()
                 .allow_origin(origin_list)
-                .allow_headers([
-                    header::CONTENT_TYPE,
-                    header::AUTHORIZATION,
-                    header::ACCEPT,
-                ])
+                .allow_headers(Any)
                 .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-                .allow_credentials(false)
+                .expose_headers([
+                    HeaderName::from_static("mcp-session-id"),
+                    HeaderName::from_static("mcp-protocol-version"),
+                    HeaderName::from_static("x-session-id"),
+                ])
+                .allow_credentials(true)
         }
         Ok(_) => {
             tracing::warn!("ALLOWED_ORIGINS is empty after parsing, falling back to permissive CORS");

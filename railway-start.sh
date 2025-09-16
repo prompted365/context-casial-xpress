@@ -6,8 +6,8 @@
 
 set -e
 
-# Default port fallback
-DEFAULT_PORT=8080
+# Default port fallback - Smithery uses 8081
+DEFAULT_PORT=8081
 SERVER_PORT=${PORT:-$DEFAULT_PORT}
 
 echo "🚀 Starting Meta-Orchestration Protocol (MOP) on Railway"

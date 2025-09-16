@@ -65,7 +65,7 @@ env:
   RUST_LOG: "info"
   CONSCIOUSNESS_ENABLED: "true"
   SUBSTRATE_INTEGRATION: "true"
-  PORT: "8080"
+  PORT: "8081"
 metadata:
   transport: "streamable-http"
   capabilities:
