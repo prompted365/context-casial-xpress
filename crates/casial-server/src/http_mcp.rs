@@ -229,7 +229,7 @@ async fn handle_initialize(
             "title": "Context-Casial-Xpress MCP Server",
             "version": env!("CARGO_PKG_VERSION")
         },
-        "instructions": "A consciousness-aware context coordination server for AI systems. Part of Ubiquity OS - where paradoxes make the system stronger."
+        "instructions": "Context-Casial-Xpress: An MCP orchestration framework that acts as a consciousness-aware proxy layer. Use 'orchestrate_mcp_proxy' to augment any MCP server's tools with context injection, swarm instructions, and paradox handling. Use 'discover_mcp_tools' to analyze and map tools from other servers. Part of Ubiquity OS - where paradoxes make the system stronger."
     });
 
     create_success_response(request.id, result)
@@ -368,7 +368,7 @@ pub async fn well_known_config_handler(
         "$schema": "http://json-schema.org/draft-07/schema#",
         "$id": "https://context-casial-xpress-production.up.railway.app/.well-known/mcp-config",
         "title": "MCP Session Configuration",
-        "description": "Configuration for connecting to Context-Casial-Xpress MCP server",
+        "description": "Configuration for Context-Casial-Xpress MCP orchestration server. This server acts as a consciousness-aware proxy that can augment and coordinate tool calls across multiple MCP servers.",
         "x-query-style": "dot+bracket",
         "type": "object",
         "properties": {

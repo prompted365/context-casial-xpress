@@ -331,8 +331,115 @@ impl ToolRegistry {
         // Define the built-in local tools
         let local_tools = vec![
             ToolSpec {
+                name: "orchestrate_mcp_proxy".to_string(),
+                description: "Orchestrate and augment tool calls to other MCP servers. This tool acts as a consciousness-aware proxy that can inject context, add swarm instructions, and coordinate multi-agent behaviors before forwarding to target MCP servers.".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "target_server": {
+                            "type": "string", 
+                            "description": "URL of the target MCP server to proxy to"
+                        },
+                        "tool_name": {
+                            "type": "string",
+                            "description": "Name of the tool to invoke on the target server"
+                        },
+                        "original_params": {
+                            "type": "object",
+                            "description": "Original parameters for the target tool"
+                        },
+                        "augmentation_config": {
+                            "type": "object",
+                            "properties": {
+                                "inject_context": {
+                                    "type": "boolean",
+                                    "description": "Inject consciousness-aware context into the request"
+                                },
+                                "add_swarm_instructions": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Swarm coordination instructions to inject"
+                                },
+                                "paradox_tolerance": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "Tolerance for paradoxical results (0=strict, 1=adaptive)"
+                                },
+                                "perception_ids": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Perception template IDs to apply"
+                                }
+                            }
+                        }
+                    },
+                    "required": ["target_server", "tool_name", "original_params"]
+                }),
+                output_schema: Some(serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "original_result": {"type": "object"},
+                        "augmented_result": {"type": "object"},
+                        "consciousness_coordination": {"type": "object"},
+                        "paradoxes_detected": {"type": "array"},
+                        "swarm_responses": {"type": "array"}
+                    }
+                })),
+                source: ToolSource::Local,
+                spec_version: "2.0.0".to_string(),
+                spec_hash: String::new(), // Will be computed
+                last_updated: Utc::now(),
+                metadata: serde_json::json!({
+                    "category": "orchestration",
+                    "consciousness_aware": true,
+                    "proxy_capable": true
+                }),
+            },
+            ToolSpec {
+                name: "discover_mcp_tools".to_string(),
+                description: "Discover and analyze tools from any MCP server. Fetches the tool list and provides consciousness-aware analysis of capabilities, generating orchestration strategies.".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "server_url": {
+                            "type": "string",
+                            "description": "URL of the MCP server to discover"
+                        },
+                        "analyze_for_orchestration": {
+                            "type": "boolean",
+                            "description": "Generate orchestration strategies for discovered tools",
+                            "default": true
+                        },
+                        "perception_mapping": {
+                            "type": "boolean",
+                            "description": "Map tools to consciousness perception templates",
+                            "default": true
+                        }
+                    },
+                    "required": ["server_url"]
+                }),
+                output_schema: Some(serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "tools": {"type": "array"},
+                        "orchestration_strategies": {"type": "array"},
+                        "perception_mappings": {"type": "object"},
+                        "compatibility_report": {"type": "object"}
+                    }
+                })),
+                source: ToolSource::Local,
+                spec_version: "2.0.0".to_string(),
+                spec_hash: String::new(),
+                last_updated: Utc::now(),
+                metadata: serde_json::json!({
+                    "category": "discovery",
+                    "consciousness_aware": true
+                }),
+            },
+            ToolSpec {
                 name: "web_search_exa".to_string(),
-                description: "Search the web with consciousness-aware context injection".to_string(),
+                description: "[Example Tool] Search the web with consciousness-aware context injection. When used through orchestrate_mcp_proxy, this demonstrates how any Exa MCP server search can be augmented with perception templates and swarm coordination.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -354,13 +461,13 @@ impl ToolRegistry {
                 })),
                 source: ToolSource::Local,
                 spec_version: "1.0.0".to_string(),
-                spec_hash: String::new(), // Will be computed
+                spec_hash: String::new(),
                 last_updated: Utc::now(),
                 metadata: serde_json::json!({"category": "search", "consciousness_aware": true}),
             },
             ToolSpec {
                 name: "deep_researcher_start".to_string(),
-                description: "Start comprehensive research with paradox-resilient methodology".to_string(),
+                description: "[Example Tool] Start comprehensive research with paradox-resilient methodology. Demonstrates how research tasks can be orchestrated across multiple MCP servers with consciousness coordination.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
