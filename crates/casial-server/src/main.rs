@@ -476,7 +476,7 @@ async fn websocket_handler(
 /// MCP HTTP GET handler (for SSE)
 async fn mcp_get_handler(
     State(state): State<AppState>,
-    query: Query<http_mcp::SessionConfig>,
+    query: Query<http_mcp::QueryParams>,
 ) -> impl IntoResponse {
     http_mcp::mcp_handler(axum::http::Method::GET, State(state), query, None).await
 }
@@ -484,7 +484,7 @@ async fn mcp_get_handler(
 /// MCP HTTP POST handler (for JSON-RPC)
 async fn mcp_post_handler(
     State(state): State<AppState>,
-    query: Query<http_mcp::SessionConfig>,
+    query: Query<http_mcp::QueryParams>,
     body: String,
 ) -> impl IntoResponse {
     http_mcp::mcp_handler(axum::http::Method::POST, State(state), query, Some(body)).await
@@ -493,7 +493,7 @@ async fn mcp_post_handler(
 /// MCP HTTP HEAD handler (for health checks)
 async fn mcp_head_handler(
     State(state): State<AppState>,
-    query: Query<http_mcp::SessionConfig>,
+    query: Query<http_mcp::QueryParams>,
 ) -> impl IntoResponse {
     http_mcp::mcp_handler(axum::http::Method::HEAD, State(state), query, None).await
 }
@@ -501,7 +501,7 @@ async fn mcp_head_handler(
 /// MCP HTTP OPTIONS handler (for CORS preflight)
 async fn mcp_options_handler(
     State(state): State<AppState>,
-    query: Query<http_mcp::SessionConfig>,
+    query: Query<http_mcp::QueryParams>,
 ) -> impl IntoResponse {
     http_mcp::mcp_handler(axum::http::Method::OPTIONS, State(state), query, None).await
 }
