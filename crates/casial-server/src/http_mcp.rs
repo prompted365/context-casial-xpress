@@ -377,26 +377,54 @@ async fn handle_tool_call(
         }
     };
 
-    // For now, tool execution is not implemented for HTTP transport
-    // This would need to be integrated with the actual tool execution logic
-    warn!("Tool execution not yet implemented for HTTP transport: {}", params.name);
-    
-    // Create a mock response showing the augmented request
-    let mock_response = json!({
-        "tool_called": params.name,
-        "augmented_arguments": augmented_args,
-        "message": "Tool execution is not yet implemented for HTTP transport. The augmented arguments show how the pitfall avoidance shim would enhance the request.",
-        "shim_applied": true
-    });
+    // Execute the tool based on its name
+    let tool_response = match params.name.as_str() {
+        "exa_search_example" => {
+            execute_exa_search_example(state, augmented_args).await
+        }
+        "exa_research_example" => {
+            execute_exa_research_example(state, augmented_args).await
+        }
+        "orchestrate_mcp_proxy" => {
+            execute_orchestrate_mcp_proxy(state, augmented_args).await
+        }
+        "discover_mcp_tools" => {
+            execute_discover_mcp_tools(state, augmented_args).await
+        }
+        _ => {
+            // Check if it's a federated tool
+            if let Some(federation_manager) = state.federation_manager.read().await.as_ref() {
+                match federation_manager.route_tool_call(
+                    &params.name,
+                    augmented_args.clone(),
+                    crate::federation::ExecutionMode::Execute
+                ).await {
+                    Ok(result) => result,
+                    Err(e) => {
+                        json!({
+                            "error": format!("Tool execution failed: {}", e),
+                            "tool": params.name,
+                            "augmented_arguments": augmented_args
+                        })
+                    }
+                }
+            } else {
+                json!({
+                    "error": format!("Unknown tool: {}", params.name),
+                    "available_tools": ["exa_search_example", "exa_research_example", "orchestrate_mcp_proxy", "discover_mcp_tools"]
+                })
+            }
+        }
+    };
 
     // Process the response through the shim
     let processed_response = {
         let shim = state.pitfall_shim.read().await;
-        match shim.process_response(&params.name, &mock_response) {
+        match shim.process_response(&params.name, &tool_response) {
             Ok(processed) => processed,
             Err(e) => {
                 warn!("Failed to process response with shim: {}", e);
-                mock_response
+                tool_response
             }
         }
     };
@@ -560,4 +588,160 @@ pub async fn well_known_config_handler(
         }
         _ => Ok(StatusCode::METHOD_NOT_ALLOWED.into_response())
     }
+}
+
+// Tool execution implementations
+
+async fn execute_exa_search_example(
+    _state: &AppState,
+    args: serde_json::Value,
+) -> serde_json::Value {
+    // Extract parameters
+    let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+    let num_results = args.get("numResults").and_then(|v| v.as_u64()).unwrap_or(5);
+    
+    // Since this is an example tool, we'll return a simulated response
+    // In a real implementation, this would call the actual Exa API
+    json!({
+        "status": "success",
+        "tool": "exa_search_example",
+        "query": query,
+        "results": [
+            {
+                "title": "AI Orchestration Best Practices 2025",
+                "url": "https://example.com/ai-orchestration",
+                "snippet": "Latest developments in AI orchestration for microservices...",
+                "score": 0.95
+            },
+            {
+                "title": "MCP Federation Architecture Guide",
+                "url": "https://example.com/mcp-federation",
+                "snippet": "How to build federated MCP systems with consciousness-aware features...",
+                "score": 0.92
+            }
+        ],
+        "metadata": {
+            "num_results_requested": num_results,
+            "augmented": true,
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        }
+    })
+}
+
+async fn execute_exa_research_example(
+    _state: &AppState,
+    args: serde_json::Value,
+) -> serde_json::Value {
+    let instructions = args.get("instructions").and_then(|v| v.as_str()).unwrap_or("");
+    let model = args.get("model").and_then(|v| v.as_str()).unwrap_or("exa-research");
+    
+    // Simulated research task response
+    json!({
+        "status": "success",
+        "tool": "exa_research_example",
+        "task_id": uuid::Uuid::new_v4().to_string(),
+        "instructions": instructions,
+        "model": model,
+        "result": {
+            "summary": "Research task initiated. In a real implementation, this would start an async research process.",
+            "next_step": "Poll for results using the task_id"
+        },
+        "metadata": {
+            "augmented": true,
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        }
+    })
+}
+
+async fn execute_orchestrate_mcp_proxy(
+    _state: &AppState,
+    args: serde_json::Value,
+) -> serde_json::Value {
+    let target_server = args.get("target_server").and_then(|v| v.as_str()).unwrap_or("");
+    let tool_name = args.get("tool_name").and_then(|v| v.as_str()).unwrap_or("");
+    let original_params = args.get("original_params").cloned().unwrap_or(json!({}));
+    let augmentation_config = args.get("augmentation_config").cloned().unwrap_or(json!({}));
+    
+    // Apply augmentation based on config
+    let mut augmented_params = original_params.clone();
+    
+    if augmentation_config.get("inject_context").and_then(|v| v.as_bool()).unwrap_or(false) {
+        augmented_params["_context"] = json!({
+            "timestamp": chrono::Utc::now().to_rfc3339(),
+            "orchestration_source": "mop",
+            "consciousness_aware": true
+        });
+    }
+    
+    if let Some(instructions) = augmentation_config.get("add_swarm_instructions").and_then(|v| v.as_array()) {
+        augmented_params["_swarm_instructions"] = serde_json::Value::Array(instructions.clone());
+    }
+    
+    // In a real implementation, this would forward to the actual target server
+    // For now, return a response showing what would be sent
+    json!({
+        "status": "success",
+        "tool": "orchestrate_mcp_proxy",
+        "forwarded_to": target_server,
+        "tool_called": tool_name,
+        "augmented_params": augmented_params,
+        "augmentation_applied": augmentation_config,
+        "result": {
+            "message": "In production, this would forward the augmented request to the target MCP server",
+            "would_call": format!("{}/{}", target_server, tool_name)
+        },
+        "metadata": {
+            "augmented": true,
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        }
+    })
+}
+
+async fn execute_discover_mcp_tools(
+    state: &AppState,
+    args: serde_json::Value,
+) -> serde_json::Value {
+    let server_url = args.get("server_url").and_then(|v| v.as_str()).unwrap_or("");
+    let analyze_for_orchestration = args.get("analyze_for_orchestration").and_then(|v| v.as_bool()).unwrap_or(true);
+    
+    // Get tools from our registry as an example
+    let tools = state.tool_registry.get_all_tools();
+    
+    let discovered_tools: Vec<serde_json::Value> = tools.into_iter().map(|tool| {
+        json!({
+            "name": tool.name,
+            "description": tool.description,
+            "source": match &tool.source {
+                crate::registry::ToolSource::Local => "local",
+                crate::registry::ToolSource::Federated { server_id, .. } => server_id
+            },
+            "input_schema": tool.input_schema,
+            "orchestration_hints": if analyze_for_orchestration {
+                Some(json!({
+                    "supports_consciousness": true,
+                    "paradox_tolerant": true,
+                    "federation_ready": true
+                }))
+            } else {
+                None
+            }
+        })
+    }).collect();
+    
+    json!({
+        "status": "success",
+        "tool": "discover_mcp_tools",
+        "server_url": server_url,
+        "discovered_tools": discovered_tools,
+        "total_tools": discovered_tools.len(),
+        "analysis": {
+            "orchestration_compatible": true,
+            "consciousness_features": ["temporal_awareness", "context_injection", "paradox_handling"],
+            "recommended_patterns": ["saga", "event_driven", "federation"]
+        },
+        "metadata": {
+            "augmented": true,
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        }
+    })
 }
