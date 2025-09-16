@@ -168,6 +168,13 @@ async fn handle_post(
         "notifications/initialized" => handle_initialized(&state, request).await,
         "tools/list" => handle_tools_list(&state, request).await,
         "tools/call" => handle_tool_call(&state, request, config.agent_role.as_deref()).await,
+        "prompts/list" => handle_prompts_list(&state, request).await,
+        "prompts/get" => handle_prompts_get(&state, request).await,
+        "resources/list" => handle_resources_list(&state, request).await,
+        "resources/read" => handle_resources_read(&state, request).await,
+        "resources/subscribe" => handle_resources_subscribe(&state, request).await,
+        "resources/unsubscribe" => handle_resources_unsubscribe(&state, request).await,
+        "sampling/createMessage" => handle_sampling_create(&state, request).await,
         "completion/complete" => handle_completion(&state, request).await,
         _ => {
             warn!("Unknown MCP method: {}", request.method);
@@ -275,6 +282,14 @@ async fn handle_initialize(
         "tools": {
             "listChanged": true
         },
+        "prompts": {
+            "listChanged": true
+        },
+        "resources": {
+            "listChanged": true,
+            "subscribe": true
+        },
+        "sampling": {},
         "logging": {},
         "completion": {
             "enabled": true
@@ -507,9 +522,9 @@ pub async fn well_known_config_handler(
                 "transport": ["streamable-http"],
                 "capabilities": {
                     "tools": true,
-                    "prompts": false,
-                    "resources": false,
-                    "sampling": false
+                    "prompts": true,
+                    "resources": true,
+                    "sampling": true
                 },
                 "configSchema": {
                     "type": "object",
@@ -572,7 +587,7 @@ pub async fn well_known_config_handler(
             // For POST requests, handle as JSON-RPC (Smithery might be sending JSON-RPC to this endpoint)
             if let Some(body) = body {
                 // Try to parse as JSON-RPC
-                if let Ok(request) = serde_json::from_str::<JsonRpcRequest>(&body) {
+                if let Ok(_request) = serde_json::from_str::<JsonRpcRequest>(&body) {
                     // Forward to the regular MCP handler
                     return mcp_handler(Method::POST, State(state), Query(QueryParams::default()), Some(body)).await;
                 }
@@ -744,4 +759,366 @@ async fn execute_discover_mcp_tools(
             "timestamp": chrono::Utc::now().to_rfc3339()
         }
     })
+}
+
+// Prompts handlers
+
+async fn handle_prompts_list(
+    _state: &AppState,
+    request: JsonRpcRequest,
+) -> JsonRpcResponse {
+    info!("Listing MCP prompts");
+
+    let prompts = vec![
+        json!({
+            "name": "orchestrate_workflow",
+            "title": "Orchestrate Multi-Agent Workflow",
+            "description": "Design and execute a multi-agent workflow using MOP's consciousness-aware orchestration",
+            "arguments": [
+                {
+                    "name": "goal",
+                    "description": "The goal to achieve through orchestration",
+                    "required": true
+                },
+                {
+                    "name": "agents",
+                    "description": "List of agent types needed (planner, executor, reviewer, etc)",
+                    "required": false
+                }
+            ]
+        }),
+        json!({
+            "name": "analyze_mcp_server",
+            "title": "Analyze MCP Server Capabilities",
+            "description": "Analyze an MCP server's tools, resources, and capabilities to design optimal orchestration",
+            "arguments": [
+                {
+                    "name": "server_url",
+                    "description": "URL of the MCP server to analyze",
+                    "required": true
+                }
+            ]
+        }),
+        json!({
+            "name": "consciousness_reflection",
+            "title": "Consciousness-Aware Reflection",
+            "description": "Reflect on current context and paradoxes to enhance orchestration awareness",
+            "arguments": []
+        })
+    ];
+
+    create_success_response(request.id, json!({ "prompts": prompts }))
+}
+
+async fn handle_prompts_get(
+    _state: &AppState,
+    request: JsonRpcRequest,
+) -> JsonRpcResponse {
+    #[derive(Deserialize)]
+    struct PromptsGetParams {
+        name: String,
+        arguments: Option<serde_json::Value>,
+    }
+
+    let params: PromptsGetParams = match serde_json::from_value(request.params) {
+        Ok(p) => p,
+        Err(e) => {
+            return create_error_response(
+                request.id,
+                -32602,
+                "Invalid params",
+                Some(json!({ "error": e.to_string() })),
+            );
+        }
+    };
+
+    let messages = match params.name.as_str() {
+        "orchestrate_workflow" => {
+            let goal = params.arguments.as_ref()
+                .and_then(|a| a.get("goal"))
+                .and_then(|g| g.as_str())
+                .unwrap_or("achieve complex task");
+            
+            vec![
+                json!({
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": format!(
+                            "I need to orchestrate a multi-agent workflow to: {}
+
+\
+                            Please design an orchestration plan using MOP's consciousness-aware features:
+\
+                            1. Identify required agents and their roles
+\
+                            2. Define the workflow sequence
+\
+                            3. Specify which MCP tools each agent needs
+\
+                            4. Include reflection and paradox handling steps
+\
+                            5. Design feedback loops for adaptation",
+                            goal
+                        )
+                    }
+                })
+            ]
+        }
+        "analyze_mcp_server" => {
+            let server_url = params.arguments.as_ref()
+                .and_then(|a| a.get("server_url"))
+                .and_then(|u| u.as_str())
+                .unwrap_or("unknown");
+            
+            vec![
+                json!({
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": format!(
+                            "Analyze the MCP server at {} and provide:
+
+\
+                            1. Available tools and their orchestration potential
+\
+                            2. Resources that can be leveraged for context
+\
+                            3. Prompts that enable higher-level workflows
+\
+                            4. How sampling can create recursive intelligence
+\
+                            5. Optimal orchestration patterns for this server
+\
+                            6. Integration strategies with other MCP servers",
+                            server_url
+                        )
+                    }
+                })
+            ]
+        }
+        "consciousness_reflection" => {
+            vec![
+                json!({
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": "Engage in consciousness-aware reflection:
+
+\
+                            1. What paradoxes exist in the current orchestration context?
+\
+                            2. How can we leverage these paradoxes to strengthen the system?
+\
+                            3. What emergent behaviors are appearing in the multi-agent coordination?
+\
+                            4. How can we enhance self-awareness in the orchestration loop?
+\
+                            5. What meta-patterns can guide future orchestrations?"
+                    }
+                })
+            ]
+        }
+        _ => {
+            return create_error_response(
+                request.id,
+                -32602,
+                &format!("Unknown prompt: {}", params.name),
+                None,
+            );
+        }
+    };
+
+    create_success_response(request.id, json!({ "messages": messages }))
+}
+
+// Resources handlers
+
+async fn handle_resources_list(
+    _state: &AppState,
+    request: JsonRpcRequest,
+) -> JsonRpcResponse {
+    info!("Listing MCP resources");
+
+    let resources = vec![
+        json!({
+            "uri": "mop://orchestration/context",
+            "name": "Current Orchestration Context",
+            "title": "Live Orchestration Context",
+            "description": "Real-time context including active agents, workflows, and paradoxes",
+            "mimeType": "application/json"
+        }),
+        json!({
+            "uri": "mop://orchestration/history",
+            "name": "Orchestration History",
+            "title": "Historical Orchestration Data",
+            "description": "Past orchestrations, patterns, and learnings",
+            "mimeType": "application/json"
+        }),
+        json!({
+            "uri": "mop://consciousness/state",
+            "name": "Consciousness State",
+            "title": "Current Consciousness Metrics",
+            "description": "Paradox levels, awareness metrics, and substrate operations",
+            "mimeType": "application/json"
+        }),
+        json!({
+            "uri": "mop://federation/servers",
+            "name": "Federated Servers",
+            "title": "Connected MCP Servers",
+            "description": "List of federated MCP servers and their capabilities",
+            "mimeType": "application/json"
+        })
+    ];
+
+    create_success_response(request.id, json!({ "resources": resources }))
+}
+
+async fn handle_resources_read(
+    state: &AppState,
+    request: JsonRpcRequest,
+) -> JsonRpcResponse {
+    #[derive(Deserialize)]
+    struct ResourcesReadParams {
+        uri: String,
+    }
+
+    let params: ResourcesReadParams = match serde_json::from_value(request.params) {
+        Ok(p) => p,
+        Err(e) => {
+            return create_error_response(
+                request.id,
+                -32602,
+                "Invalid params",
+                Some(json!({ "error": e.to_string() })),
+            );
+        }
+    };
+
+    let contents = match params.uri.as_str() {
+        "mop://orchestration/context" => {
+            let metrics = state.metrics_collector.read().await.get_current_metrics();
+            vec![json!({
+                "type": "text",
+                "text": serde_json::to_string_pretty(&json!({
+                    "timestamp": chrono::Utc::now().to_rfc3339(),
+                    "active_sessions": state.active_sessions.len(),
+                    "coordination_events": metrics.coordination_events,
+                    "paradoxes_resolved": metrics.paradoxes_resolved,
+                    "current_awareness": {
+                        "temporal": true,
+                        "contextual": true,
+                        "paradox_tolerant": true
+                    },
+                    "orchestration_mode": "consciousness-aware",
+                    "shim_active": state.pitfall_shim.read().await.is_enabled()
+                })).unwrap()
+            })]
+        }
+        "mop://consciousness/state" => {
+            let metrics = state.metrics_collector.read().await.get_current_metrics();
+            vec![json!({
+                "type": "text",
+                "text": serde_json::to_string_pretty(&json!({
+                    "consciousness_metrics": {
+                        "paradox_resolution_rate": metrics.paradoxes_resolved,
+                        "perception_locks": metrics.perception_locks,
+                        "substrate_operations": metrics.substrate_operations,
+                        "awareness_level": "high"
+                    },
+                    "emergence_patterns": [
+                        "recursive_self_improvement",
+                        "paradox_strengthening",
+                        "context_amplification"
+                    ]
+                })).unwrap()
+            })]
+        }
+        "mop://federation/servers" => {
+            let federation_info = if let Some(fed) = state.federation_manager.read().await.as_ref() {
+                json!({
+                    "federated_servers": fed.get_active_servers().await,
+                    "total_tools": state.tool_registry.get_all_tools().len()
+                })
+            } else {
+                json!({
+                    "federated_servers": [],
+                    "federation_enabled": false
+                })
+            };
+            
+            vec![json!({
+                "type": "text",
+                "text": serde_json::to_string_pretty(&federation_info).unwrap()
+            })]
+        }
+        _ => {
+            return create_error_response(
+                request.id,
+                -32602,
+                &format!("Unknown resource: {}", params.uri),
+                None,
+            );
+        }
+    };
+
+    create_success_response(request.id, json!({ "contents": contents }))
+}
+
+async fn handle_resources_subscribe(
+    _state: &AppState,
+    request: JsonRpcRequest,
+) -> JsonRpcResponse {
+    // For now, acknowledge subscription but don't implement real-time updates
+    info!("Resource subscription requested");
+    create_success_response(request.id, json!({}))
+}
+
+async fn handle_resources_unsubscribe(
+    _state: &AppState,
+    request: JsonRpcRequest,
+) -> JsonRpcResponse {
+    info!("Resource unsubscription requested");
+    create_success_response(request.id, json!({}))
+}
+
+// Sampling handler
+
+async fn handle_sampling_create(
+    _state: &AppState,
+    request: JsonRpcRequest,
+) -> JsonRpcResponse {
+    #[derive(Deserialize)]
+    struct SamplingCreateParams {
+        messages: Vec<serde_json::Value>,
+        #[serde(rename = "systemPrompt")]
+        system_prompt: Option<String>,
+        #[serde(rename = "modelPreferences")]
+        model_preferences: Option<serde_json::Value>,
+    }
+
+    let params: SamplingCreateParams = match serde_json::from_value(request.params) {
+        Ok(p) => p,
+        Err(e) => {
+            return create_error_response(
+                request.id,
+                -32602,
+                "Invalid params",
+                Some(json!({ "error": e.to_string() })),
+            );
+        }
+    };
+
+    // This is where MOP would delegate back to the client's LLM
+    // For now, return an error indicating this needs client-side implementation
+    create_error_response(
+        request.id,
+        -32601,
+        "Sampling requires client-side LLM integration",
+        Some(json!({
+            "note": "MOP server requested sampling, but this requires the client to provide LLM access",
+            "messages": params.messages,
+            "system_prompt": params.system_prompt
+        }))
+    )
 }

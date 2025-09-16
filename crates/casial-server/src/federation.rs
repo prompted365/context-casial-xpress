@@ -496,6 +496,35 @@ impl McpFederationManager {
         health_map
     }
 
+    /// Get list of active federated servers
+    pub async fn get_active_servers(&self) -> Vec<serde_json::Value> {
+        let mut servers = Vec::new();
+        
+        for entry in self.clients.iter() {
+            let server_id = entry.key().clone();
+            let client = entry.value().read().await;
+            let is_connected = client.is_connected().await;
+            
+            // Find the config for this server
+            let config = self.settings.downstream_servers.iter()
+                .find(|s| s.id == server_id)
+                .cloned();
+                
+            if let Some(cfg) = config {
+                servers.push(serde_json::json!({
+                    "id": server_id,
+                    "name": cfg.name,
+                    "transport": cfg.connection_type,
+                    "connected": is_connected,
+                    "enabled": cfg.enabled,
+                    "tool_count": self.tool_registry.get_tools_from_source(&server_id).len()
+                }));
+            }
+        }
+        
+        servers
+    }
+
     /// Shutdown federation manager
     pub async fn shutdown(&mut self) -> Result<()> {
         info!("🛑 Shutting down MCP Federation...");

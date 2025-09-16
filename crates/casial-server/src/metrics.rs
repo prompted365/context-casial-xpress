@@ -132,6 +132,18 @@ casial_last_updated_timestamp {}
     pub fn get_history(&self) -> &VecDeque<MetricsSnapshot> {
         &self.history
     }
+
+    /// Get current metrics as a snapshot
+    pub fn get_current_metrics(&self) -> MetricsSnapshot {
+        MetricsSnapshot {
+            timestamp: self.last_updated,
+            coordination_events: self.coordination_events,
+            active_sessions: self.active_sessions,
+            paradoxes_resolved: self.paradoxes_resolved,
+            perception_locks: self.perception_locks,
+            substrate_operations: self.substrate_operations,
+        }
+    }
 }
 
 impl Default for MetricsCollector {
