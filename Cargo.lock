@@ -403,6 +403,7 @@ dependencies = [
  "hostname",
  "http",
  "jsonschema",
+ "lazy_static",
  "metrics",
  "metrics-exporter-prometheus",
  "notify",

@@ -11,9 +11,10 @@ use axum::{
     Json,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use dashmap::DashMap;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::convert::Infallible;
+use std::{convert::Infallible, sync::Arc};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, error, info, warn};
@@ -21,8 +22,22 @@ use http::HeaderValue;
 
 use crate::{mcp::*, AppState};
 
+/// Active session storage
+#[derive(Debug, Clone)]
+pub struct SessionData {
+    pub id: String,
+    pub config: SessionConfig,
+    pub created_at: std::time::Instant,
+    pub last_accessed: std::time::Instant,
+}
+
+lazy_static::lazy_static! {
+    /// Global session storage
+    static ref SESSIONS: Arc<DashMap<String, SessionData>> = Arc::new(DashMap::new());
+}
+
 /// Session configuration from query parameters
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Clone)]
 pub struct SessionConfig {
     #[serde(rename = "apiKey")]
     pub api_key: Option<String>,
@@ -92,38 +107,53 @@ pub async fn mcp_handler(
         config.api_key = api_key_from_header;
     }
     
-    // Validate API key
-    const VALID_API_KEY: &str = "GiftFromUbiquityF2025";
+    // Extract session ID from headers
+    let session_id = headers
+        .get("mcp-session-id")
+        .and_then(|h| h.to_str().ok())
+        .map(|s| s.to_string());
     
-    if let Some(ref api_key) = config.api_key {
-        if api_key != VALID_API_KEY {
+    // Check if we have a valid session (bypass API key check if so)
+    let has_valid_session = if let Some(sid) = &session_id {
+        SESSIONS.contains_key(sid)
+    } else {
+        false
+    };
+    
+    // Validate API key only if no valid session
+    if !has_valid_session {
+        const VALID_API_KEY: &str = "GiftFromUbiquityF2025";
+        
+        if let Some(ref api_key) = config.api_key {
+            if api_key != VALID_API_KEY {
+                return Ok(Response::builder()
+                    .status(StatusCode::UNAUTHORIZED)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(
+                        Json(json!({
+                            "error": "Invalid API key",
+                            "message": "Please provide a valid API key in the configuration"
+                        }))
+                        .into_response()
+                        .into_body(),
+                    )
+                    .unwrap());
+            }
+        } else {
+            // API key is required if no session
             return Ok(Response::builder()
                 .status(StatusCode::UNAUTHORIZED)
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(
                     Json(json!({
-                        "error": "Invalid API key",
-                        "message": "Please provide a valid API key in the configuration"
+                        "error": "Missing API key",
+                        "message": "API key is required. Please configure with apiKey parameter."
                     }))
                     .into_response()
                     .into_body(),
                 )
                 .unwrap());
         }
-    } else {
-        // API key is required
-        return Ok(Response::builder()
-            .status(StatusCode::UNAUTHORIZED)
-            .header(header::CONTENT_TYPE, "application/json")
-            .body(
-                Json(json!({
-                    "error": "Missing API key",
-                    "message": "API key is required. Please configure with apiKey parameter."
-                }))
-                .into_response()
-                .into_body(),
-            )
-            .unwrap());
     }
     
     // Log session configuration if debug is enabled
@@ -133,8 +163,9 @@ pub async fn mcp_handler(
     }
     
     match method {
-        Method::POST => handle_post(state, config, body).await,
-        Method::GET => handle_get_sse(state, config).await,
+        Method::POST => handle_post(state, config, body, session_id).await,
+        Method::GET => handle_get_sse(state, config, session_id).await,
+        Method::DELETE => handle_delete_session(session_id).await,
         Method::HEAD => {
             // Return OK for HEAD requests (used by Smithery for health checks)
             Ok(Response::builder()
@@ -166,8 +197,9 @@ pub async fn mcp_handler(
 /// Handle POST requests with JSON-RPC payloads
 async fn handle_post(
     state: AppState,
-    config: SessionConfig,
+    mut config: SessionConfig,
     body: Option<String>,
+    session_id: Option<String>,
 ) -> Result<Response, StatusCode> {
     let body = body.ok_or(StatusCode::BAD_REQUEST)?;
     
@@ -180,12 +212,62 @@ async fn handle_post(
 
     debug!("Received MCP request: method={}, id={:?}", request.method, request.id);
 
+    // For non-initialize requests, validate session
+    if request.method != "initialize" {
+        if let Some(sid) = &session_id {
+            if let Some(mut session) = SESSIONS.get_mut(sid) {
+                // Update last accessed time
+                session.last_accessed = std::time::Instant::now();
+                // Use session's config
+                config = session.config.clone();
+                info!("Using existing session: {}", sid);
+            } else {
+                warn!("Invalid session ID: {}", sid);
+                return Ok(Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(
+                        Json(json!({
+                            "jsonrpc": "2.0",
+                            "error": {
+                                "code": -32000,
+                                "message": "Invalid session ID"
+                            },
+                            "id": request.id
+                        }))
+                        .into_response()
+                        .into_body(),
+                    )
+                    .unwrap());
+            }
+        } else if request.method != "notifications/initialized" {
+            // Session ID required for non-initialize, non-notification requests
+            warn!("Missing session ID for method: {}", request.method);
+            return Ok(Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(
+                    Json(json!({
+                        "jsonrpc": "2.0",
+                        "error": {
+                            "code": -32000,
+                            "message": "Session ID required"
+                        },
+                        "id": request.id
+                    }))
+                    .into_response()
+                    .into_body(),
+                )
+                .unwrap());
+        }
+    }
+
     // Store method for later use
     let method = request.method.clone();
     
     // Route to appropriate handler
     let response = match request.method.as_str() {
-        "initialize" => handle_initialize(&state, request).await,
+        "initialize" => handle_initialize(&state, request, &config).await,
         "notifications/initialized" => handle_initialized(&state, request).await,
         "tools/list" => handle_tools_list(&state, request).await,
         "tools/call" => handle_tool_call(&state, request, config.agent_role.as_deref()).await,
@@ -247,7 +329,28 @@ async fn handle_post(
 async fn handle_get_sse(
     _state: AppState,
     _config: SessionConfig,
+    session_id: Option<String>,
 ) -> Result<Response, StatusCode> {
+    // Validate session for GET requests
+    if let Some(sid) = &session_id {
+        if let Some(mut session) = SESSIONS.get_mut(sid) {
+            // Update last accessed time
+            session.last_accessed = std::time::Instant::now();
+            info!("SSE stream for session: {}", sid);
+        } else {
+            warn!("Invalid session ID for SSE: {}", sid);
+            return Ok(Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body(axum::body::Body::from("Invalid session ID"))
+                .unwrap());
+        }
+    } else {
+        warn!("Missing session ID for SSE stream");
+        return Ok(Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body(axum::body::Body::from("Session ID required"))
+            .unwrap());
+    }
     // For Smithery's Streamable HTTP, we need to return a simple SSE stream
     // that will handle JSON-RPC messages sent as events
     let (_tx, rx) = mpsc::channel::<Result<Event, Infallible>>(100);
@@ -263,7 +366,7 @@ async fn handle_get_sse(
         .keep_alive(
             axum::response::sse::KeepAlive::new()
                 .interval(std::time::Duration::from_secs(30))
-                .text(":\n"),  // Standard SSE keep-alive format
+                .text(":"),  // Standard SSE keep-alive format (colon only, no newline)
         );
     
     // Add CORS headers to SSE response
@@ -278,10 +381,37 @@ async fn handle_get_sse(
     Ok(sse_response)
 }
 
+/// Handle DELETE requests for session termination
+async fn handle_delete_session(
+    session_id: Option<String>,
+) -> Result<Response, StatusCode> {
+    if let Some(sid) = session_id {
+        if let Some(_) = SESSIONS.remove(&sid) {
+            info!("Session terminated: {}", sid);
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .body(axum::body::Body::empty())
+                .unwrap())
+        } else {
+            warn!("Attempted to delete non-existent session: {}", sid);
+            Ok(Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body(axum::body::Body::from("Session not found"))
+                .unwrap())
+        }
+    } else {
+        Ok(Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body(axum::body::Body::from("Session ID required"))
+            .unwrap())
+    }
+}
+
 /// Handle initialize request
 async fn handle_initialize(
     _state: &AppState,
     request: JsonRpcRequest,
+    config: &SessionConfig,
 ) -> JsonRpcResponse {
     // Extract initialize params
     #[derive(Deserialize)]
@@ -355,6 +485,16 @@ async fn handle_initialize(
 
     // Generate a session ID for streamable-http transport
     let session_id = format!("mop-{}", uuid::Uuid::new_v4());
+    
+    // Store the session
+    let session_data = SessionData {
+        id: session_id.clone(),
+        config: config.clone(),
+        created_at: std::time::Instant::now(),
+        last_accessed: std::time::Instant::now(),
+    };
+    SESSIONS.insert(session_id.clone(), session_data);
+    info!("Created new session: {}", session_id);
     
     // Store session ID in the result for HTTP transport
     let mut response = create_success_response(request.id, result);

@@ -460,7 +460,7 @@ async fn build_router(state: AppState) -> Result<Router> {
         // WebSocket endpoint for MCP communication
         .route("/ws", get(websocket_handler))
         // HTTP/SSE MCP endpoint for Smithery integration
-        .route("/mcp", get(mcp_get_handler).post(mcp_post_handler).head(mcp_head_handler).options(mcp_options_handler))
+        .route("/mcp", get(mcp_get_handler).post(mcp_post_handler).head(mcp_head_handler).options(mcp_options_handler).delete(mcp_delete_handler))
         // Well-known MCP configuration endpoint
         .route("/.well-known/mcp-config", get(well_known_get_handler).post(well_known_post_handler))
         // Health check endpoint
@@ -531,6 +531,15 @@ async fn mcp_options_handler(
     query: Query<http_mcp::QueryParams>,
 ) -> impl IntoResponse {
     http_mcp::mcp_handler(axum::http::Method::OPTIONS, State(state), headers, query, None).await
+}
+
+/// MCP HTTP DELETE handler (for session termination)
+async fn mcp_delete_handler(
+    State(state): State<AppState>,
+    headers: http::HeaderMap,
+    query: Query<http_mcp::QueryParams>,
+) -> impl IntoResponse {
+    http_mcp::mcp_handler(axum::http::Method::DELETE, State(state), headers, query, None).await
 }
 
 /// Well-known configuration GET handler
