@@ -499,49 +499,55 @@ async fn websocket_handler(
 /// MCP HTTP GET handler (for SSE)
 async fn mcp_get_handler(
     State(state): State<AppState>,
+    headers: http::HeaderMap,
     query: Query<http_mcp::QueryParams>,
 ) -> impl IntoResponse {
-    http_mcp::mcp_handler(axum::http::Method::GET, State(state), query, None).await
+    http_mcp::mcp_handler(axum::http::Method::GET, State(state), headers, query, None).await
 }
 
 /// MCP HTTP POST handler (for JSON-RPC)
 async fn mcp_post_handler(
     State(state): State<AppState>,
+    headers: http::HeaderMap,
     query: Query<http_mcp::QueryParams>,
     body: String,
 ) -> impl IntoResponse {
-    http_mcp::mcp_handler(axum::http::Method::POST, State(state), query, Some(body)).await
+    http_mcp::mcp_handler(axum::http::Method::POST, State(state), headers, query, Some(body)).await
 }
 
 /// MCP HTTP HEAD handler (for health checks)
 async fn mcp_head_handler(
     State(state): State<AppState>,
+    headers: http::HeaderMap,
     query: Query<http_mcp::QueryParams>,
 ) -> impl IntoResponse {
-    http_mcp::mcp_handler(axum::http::Method::HEAD, State(state), query, None).await
+    http_mcp::mcp_handler(axum::http::Method::HEAD, State(state), headers, query, None).await
 }
 
 /// MCP HTTP OPTIONS handler (for CORS preflight)
 async fn mcp_options_handler(
     State(state): State<AppState>,
+    headers: http::HeaderMap,
     query: Query<http_mcp::QueryParams>,
 ) -> impl IntoResponse {
-    http_mcp::mcp_handler(axum::http::Method::OPTIONS, State(state), query, None).await
+    http_mcp::mcp_handler(axum::http::Method::OPTIONS, State(state), headers, query, None).await
 }
 
 /// Well-known configuration GET handler
 async fn well_known_get_handler(
     State(state): State<AppState>,
+    headers: http::HeaderMap,
 ) -> impl IntoResponse {
-    http_mcp::well_known_config_handler(Method::GET, State(state), None).await
+    http_mcp::well_known_config_handler(Method::GET, State(state), headers, None).await
 }
 
 /// Well-known configuration POST handler  
 async fn well_known_post_handler(
     State(state): State<AppState>,
+    headers: http::HeaderMap,
     body: String,
 ) -> impl IntoResponse {
-    http_mcp::well_known_config_handler(Method::POST, State(state), Some(body)).await
+    http_mcp::well_known_config_handler(Method::POST, State(state), headers, Some(body)).await
 }
 
 /// Health check endpoint

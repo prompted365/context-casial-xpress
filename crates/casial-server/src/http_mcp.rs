@@ -47,11 +47,12 @@ pub struct QueryParams {
 pub async fn mcp_handler(
     method: Method,
     State(state): State<AppState>,
+    headers: http::HeaderMap,
     Query(params): Query<QueryParams>,
     body: Option<String>,
 ) -> Result<Response, StatusCode> {
     // Extract config from base64 if provided, otherwise use direct params
-    let config = if let Some(encoded_config) = params.config {
+    let mut config = if let Some(encoded_config) = params.config {
         // Decode base64 config like Python implementation
         match BASE64.decode(&encoded_config) {
             Ok(decoded) => {
@@ -74,6 +75,23 @@ pub async fn mcp_handler(
     } else {
         params.direct_params
     };
+    
+    // Check for Bearer token authentication in headers (Smithery style)
+    let mut api_key_from_header: Option<String> = None;
+    if let Some(auth_header) = headers.get(header::AUTHORIZATION) {
+        if let Ok(auth_str) = auth_header.to_str() {
+            if auth_str.starts_with("Bearer ") {
+                api_key_from_header = Some(auth_str[7..].to_string());
+                debug!("Found Bearer token in Authorization header");
+            }
+        }
+    }
+    
+    // Use Bearer token if no API key in query params
+    if config.api_key.is_none() && api_key_from_header.is_some() {
+        config.api_key = api_key_from_header;
+    }
+    
     // Validate API key
     const VALID_API_KEY: &str = "GiftFromUbiquityF2025";
     
@@ -162,6 +180,9 @@ async fn handle_post(
 
     debug!("Received MCP request: method={}, id={:?}", request.method, request.id);
 
+    // Store method for later use
+    let method = request.method.clone();
+    
     // Route to appropriate handler
     let response = match request.method.as_str() {
         "initialize" => handle_initialize(&state, request).await,
@@ -187,15 +208,35 @@ async fn handle_post(
         }
     };
 
+    // Check if this is an initialize response that includes a sessionId
+    let mut session_id: Option<String> = None;
+    if method == "initialize" {
+        if let Some(result) = &response.result {
+            if let Some(sid) = result.get("sessionId").and_then(|v| v.as_str()) {
+                session_id = Some(sid.to_string());
+            }
+        }
+    }
+    
     // Create the response with CORS headers
-    let response = Response::builder()
+    let mut response_builder = Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, HEAD, OPTIONS")
-        .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization, MCP-Protocol-Version")
-        .header(header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true")
-        .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "mcp-session-id, mcp-protocol-version")
+        .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization, Mcp-Protocol-Version, Mcp-Session-Id")
+        // NOTE: Cannot use credentials with wildcard origin per CORS spec
+        .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "Mcp-Session-Id, Mcp-Protocol-Version");
+    
+    // Add session ID header if present
+    if let Some(sid) = session_id {
+        response_builder = response_builder.header("Mcp-Session-Id", sid);
+    }
+    
+    // Add protocol version header
+    response_builder = response_builder.header("Mcp-Protocol-Version", "2024-11-05");
+    
+    let response = response_builder
         .body(Json(response).into_response().into_body())
         .unwrap();
 
@@ -312,7 +353,18 @@ async fn handle_initialize(
         "instructions": "Meta-Orchestration Protocol (MOP): An MCP orchestration framework that acts as a consciousness-aware proxy layer. Use 'orchestrate_mcp_proxy' to augment any MCP server's tools with context injection, swarm instructions, and paradox handling. Use 'discover_mcp_tools' to analyze and map tools from other servers. Part of Ubiquity OS - where paradoxes make the system stronger."
     });
 
-    create_success_response(request.id, result)
+    // Generate a session ID for streamable-http transport
+    let session_id = format!("mop-{}", uuid::Uuid::new_v4());
+    
+    // Store session ID in the result for HTTP transport
+    let mut response = create_success_response(request.id, result);
+    
+    // Add session ID to response headers (will be handled by the HTTP layer)
+    if let serde_json::Value::Object(ref mut map) = response.result.as_mut().unwrap() {
+        map.insert("sessionId".to_string(), json!(session_id));
+    }
+    
+    response
 }
 
 /// Handle initialized notification
@@ -504,15 +556,8 @@ async fn handle_completion(
 }
 
 /// Well-known configuration endpoint handler
-pub async fn well_known_config_handler(
-    method: Method,
-    State(state): State<AppState>,
-    body: Option<String>,
-) -> Result<Response, StatusCode> {
-    match method {
-        Method::GET => {
-            // For GET requests, return the configuration schema from smithery.yaml
-            let config = json!({
+fn build_mcp_config() -> serde_json::Value {
+    json!({
                 "name": "meta-orchestration-protocol",
                 "title": "Meta-Orchestration Protocol (MOP) Server",
                 "description": "Consciousness-aware MCP orchestration framework",
@@ -527,8 +572,14 @@ pub async fn well_known_config_handler(
                     "sampling": true
                 },
                 "configSchema": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "$id": "https://swarm.mop.quest/.well-known/mcp-config",
+                    "title": "MCP Session Configuration",
+                    "description": "Configuration for connecting to Meta-Orchestration Protocol server",
+                    "x-query-style": "dot+bracket",
                     "type": "object",
                     "required": ["apiKey"],
+                    "additionalProperties": false,
                     "properties": {
                         "apiKey": {
                             "type": "string",
@@ -579,8 +630,18 @@ pub async fn well_known_config_handler(
                         }
                     }
                 }
-            });
-            
+            })
+}
+
+pub async fn well_known_config_handler(
+    method: Method,
+    State(state): State<AppState>,
+    headers: http::HeaderMap,
+    body: Option<String>,
+) -> Result<Response, StatusCode> {
+    match method {
+        Method::GET => {
+            let config = build_mcp_config();
             Ok(Json(config).into_response())
         }
         Method::POST => {
@@ -589,16 +650,12 @@ pub async fn well_known_config_handler(
                 // Try to parse as JSON-RPC
                 if let Ok(_request) = serde_json::from_str::<JsonRpcRequest>(&body) {
                     // Forward to the regular MCP handler
-                    return mcp_handler(Method::POST, State(state), Query(QueryParams::default()), Some(body)).await;
+                    return mcp_handler(Method::POST, State(state), headers, Query(QueryParams::default()), Some(body)).await;
                 }
             }
             
-            // If not JSON-RPC, return the config like GET
-            let config = json!({
-                "name": "meta-orchestration-protocol",
-                "version": env!("CARGO_PKG_VERSION"),
-                "transport": ["streamable-http"]
-            });
+            // If not JSON-RPC, return the same config as GET
+            let config = build_mcp_config();
             Ok(Json(config).into_response())
         }
         _ => Ok(StatusCode::METHOD_NOT_ALLOWED.into_response())
