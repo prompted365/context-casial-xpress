@@ -12,6 +12,7 @@ description: |
 templates:
   - id: exa_framework
     name: Exa Global Framework
+    description: Global consciousness framework for Exa MCP orchestration with multi-agent patterns
     categories: [exa, framework, research]
     priority: 100
     content: |
@@ -40,6 +41,7 @@ templates:
 
   - id: exa_search
     name: Exa Search Optimization
+    description: Search-specific templates and best practices for Exa web search operations
     categories: [exa, search]
     priority: 90
     content: |
@@ -70,6 +72,7 @@ templates:
 
   - id: exa_crawling
     name: Exa Content Crawling
+    description: Content extraction and crawling optimization templates for Exa
     categories: [exa, crawling, content]
     priority: 85
     content: |
@@ -97,6 +100,7 @@ templates:
 
   - id: exa_websets
     name: Exa Websets Configuration
+    description: Standing query and monitoring configuration templates for Exa websets
     categories: [exa, websets, monitoring]
     priority: 80
     content: |
@@ -125,6 +129,7 @@ templates:
 
   - id: exa_research
     name: Exa Research Tasks
+    description: Research task management and synthesis templates for Exa investigations
     categories: [exa, research, synthesis]
     priority: 85
     content: |
@@ -153,7 +158,8 @@ templates:
       - Flag areas requiring human review
 
   - id: exa_citations
-    name: Exa Citation Standards  
+    name: Exa Citation Standards
+    description: Citation and evidence tracking templates for maintaining research integrity
     categories: [exa, citations, verification]
     priority: 75
     content: |

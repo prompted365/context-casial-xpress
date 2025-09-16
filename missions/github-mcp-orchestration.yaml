@@ -11,6 +11,7 @@ description: |
 templates:
   - id: github_framework
     name: GitHub Global Framework
+    description: Global consciousness framework for GitHub MCP orchestration
     categories: [github, framework, code]
     priority: 100
     content: |
@@ -38,6 +39,7 @@ templates:
 
   - id: github_search
     name: GitHub Search Optimization
+    description: Search strategy templates for GitHub code and repository discovery
     categories: [github, search]
     priority: 90
     content: |
@@ -57,6 +59,7 @@ templates:
 
   - id: github_analysis
     name: GitHub Code Analysis
+    description: Code analysis and pattern recognition templates for GitHub repositories
     categories: [github, analysis]
     priority: 85
     content: |
