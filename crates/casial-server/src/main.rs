@@ -391,9 +391,9 @@ fn create_cors_layer() -> tower_http::cors::CorsLayer {
         return CorsLayer::permissive();
     }
 
-    // Case 2: Wildcard (*) -> use Any
+    // Case 2: Wildcard (*) -> use Any without credentials
     if allowed_origins == "*" {
-        tracing::info!("ALLOWED_ORIGINS='*', allowing all origins");
+        tracing::info!("ALLOWED_ORIGINS='*', allowing all origins without credentials");
         return CorsLayer::new()
             .allow_origin(Any)
             .allow_headers(vec![
@@ -409,8 +409,8 @@ fn create_cors_layer() -> tower_http::cors::CorsLayer {
                 HeaderName::from_static("mcp-session-id"),
                 HeaderName::from_static("mcp-protocol-version"),
                 HeaderName::from_static("x-session-id"),
-            ])
-            .allow_credentials(true);
+            ]);
+            // Note: Cannot use allow_credentials(true) with wildcard origin
     }
 
     // Case 3: Comma-separated origins -> parse into list
