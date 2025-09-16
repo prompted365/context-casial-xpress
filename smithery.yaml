@@ -1,3 +1,8 @@
+name: "meta-orchestration-protocol"
+title: "Meta-Orchestration Protocol (MOP)"
+description: "Consciousness-aware MCP orchestration framework that acts as a proxy layer to augment any MCP server's tools with context injection, swarm instructions, and paradox handling."
+vendor: "Prompted LLC"
+homepage: "https://github.com/prompted365/context-casial-xpress"
 runtime: "container"
 startCommand:
   type: "http"
@@ -61,3 +66,10 @@ env:
   CONSCIOUSNESS_ENABLED: "true"
   SUBSTRATE_INTEGRATION: "true"
   PORT: "8080"
+metadata:
+  transport: "streamable-http"
+  capabilities:
+    tools: true
+    prompts: false
+    resources: false
+    sampling: false

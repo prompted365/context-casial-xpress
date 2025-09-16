@@ -445,7 +445,7 @@ async fn build_router(state: AppState) -> Result<Router> {
         // HTTP/SSE MCP endpoint for Smithery integration
         .route("/mcp", get(mcp_get_handler).post(mcp_post_handler).head(mcp_head_handler).options(mcp_options_handler))
         // Well-known MCP configuration endpoint
-        .route("/.well-known/mcp-config", get(http_mcp::well_known_config_handler))
+        .route("/.well-known/mcp-config", get(http_mcp::well_known_config_handler).post(http_mcp::well_known_config_handler))
         // Health check endpoint
         .route("/", get(health_check))
         .route("/health", get(health_check))

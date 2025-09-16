@@ -527,7 +527,15 @@ pub async fn well_known_config_handler(
         "name": "meta-orchestration-protocol",
         "title": "Meta-Orchestration Protocol (MOP) Server",
         "version": env!("CARGO_PKG_VERSION"),
-        "transport": ["streamable-http"]
+        "transport": ["streamable-http"],
+        "vendor": "Prompted LLC",
+        "homepage": "https://github.com/prompted365/context-casial-xpress",
+        "capabilities": {
+            "tools": true,
+            "prompts": false,
+            "resources": false,
+            "sampling": false
+        }
     });
 
     Ok(Json(config))
