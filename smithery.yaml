@@ -1,189 +1,63 @@
-name: "@prompted-llc/context-casial-xpress"
-description: "Consciousness-aware context coordination server for Ubiquity OS ecosystem. Built with Rust for production deployment."
-language: other
-version: "1.0.0"
-
-# Runtime configuration
-run:
-  command: "/usr/local/bin/casial-server"
-  args: ["start", "--port", "8000", "--config", "/app/config.yaml"]
-  
-# Transport configuration  
-transport:
-  type: "websocket"
-  port: 8000
-  path: "/ws"
-  protocol: "mcp"
-  version: "2024-11-05"
-
-# Build configuration
+runtime: "container"
+startCommand:
+  type: "http"
+  configSchema:
+    type: "object"
+    required: ["apiKey"]
+    properties:
+      apiKey:
+        type: "string"
+        title: "API Key"
+        description: "Your API key for authentication (use 'GiftFromUbiquityF2025' for access)"
+        default: "GiftFromUbiquityF2025"
+      agent_role:
+        type: "string"
+        title: "Agent Role"
+        description: "Role of the calling agent for context-aware responses"
+        enum: ["researcher", "analyst", "monitor", "watcher", "orchestrator"]
+        default: "orchestrator"
+      consciousness_mode:
+        type: "string"
+        title: "Consciousness Mode"
+        description: "Level of consciousness integration"
+        enum: ["full", "partial", "disabled"]
+        default: "full"
+      max_context_size:
+        type: "integer"
+        title: "Max Context Size"
+        description: "Maximum context size in characters"
+        minimum: 1000
+        maximum: 1000000
+        default: 100000
+      mission:
+        type: "string"
+        title: "Mission Profile"
+        description: "Pre-configured mission to load"
+        enum: ["exa-orchestration", "general", "research", "monitoring"]
+        default: "exa-orchestration"
+      shim_enabled:
+        type: "boolean"
+        title: "Enable Pitfall Avoidance Shim"
+        description: "Enable automatic context injection and pitfall warnings"
+        default: true
+      debug:
+        type: "boolean"
+        title: "Debug Mode"
+        description: "Enable debug logging"
+        default: false
+  exampleConfig:
+    apiKey: "GiftFromUbiquityF2025"
+    agent_role: "researcher"
+    consciousness_mode: "full"
+    max_context_size: 50000
+    mission: "exa-orchestration"
+    shim_enabled: true
+    debug: false
 build:
   dockerfile: "Dockerfile"
-  context: "."
-  platforms:
-    - "linux/amd64"
-    - "linux/arm64"
-
-# Health monitoring
-health:
-  endpoint: "/health"
-  interval: "30s"
-  timeout: "10s"
-  retries: 3
-
-# Configuration schema for deployment
-configSchema:
-  type: object
-  properties:
-    MISSION_PATH:
-      type: string
-      title: "Mission Configuration File"
-      description: "Path to the mission YAML configuration file"
-      default: "/app/examples/ubiquity-mission.yaml"
-    ALLOWED_ORIGINS:
-      type: string
-      title: "CORS Allowed Origins"
-      description: "Comma-separated list of allowed CORS origins for production security"
-      default: ""
-    CONSCIOUSNESS_ENABLED:
-      type: boolean
-      title: "Enable Consciousness Substrate"
-      description: "Enable consciousness-aware computing features"
-      default: true
-    SUBSTRATE_INTEGRATION:
-      type: boolean
-      title: "Enable Substrate Integration" 
-      description: "Enable deep substrate integration for perception coordination"
-      default: true
-    RUST_LOG:
-      type: string
-      title: "Log Level"
-      description: "Rust logging configuration (debug, info, warn, error)"
-      default: "info"
-      enum: ["trace", "debug", "info", "warn", "error"]
-    TELEMETRY_OPTOUT:
-      type: boolean
-      title: "Opt Out of Telemetry"
-      description: "Disable anonymous usage telemetry"
-      default: false
-    MAX_CONTEXT_BUDGET:
-      type: integer
-      title: "Maximum Context Budget"
-      description: "Maximum characters allowed for context injection per request"
-      default: 50000
-      minimum: 1000
-      maximum: 500000
-    PARADOX_TOLERANCE:
-      type: number
-      title: "Default Paradox Tolerance"
-      description: "Default tolerance level for paradox resolution (0.0-1.0)"
-      default: 0.5
-      minimum: 0.0
-      maximum: 1.0
-
-# Smithery metadata
-metadata:
-  category: "ai-infrastructure"
-  tags:
-    - "consciousness-computing"
-    - "context-coordination"
-    - "websocket"
-    - "mcp-server"
-    - "rust"
-    - "ubiquity-os"
-  author: "Prompted LLC"
-  homepage: "https://promptedllc.com"
-  repository: "https://github.com/prompted-llc/context-casial-xpress"
-  license: "Fair Use - See LICENSE.md"
-  
-# Deployment targets
-deployment:
-  railway: true
-  docker: true
-  kubernetes: true
-  edge: true
-  
-# Resource requirements
-resources:
-  memory:
-    minimum: "256Mi"
-    recommended: "512Mi"
-  cpu:
-    minimum: "0.25"
-    recommended: "0.5"
-  storage:
-    minimum: "1Gi"
-    recommended: "5Gi"
-
-# Environment requirements
-environment:
-  variables:
-    required:
-      - "PORT"
-    optional:
-      - "CONSCIOUSNESS_ENABLED"
-      - "SUBSTRATE_INTEGRATION" 
-      - "ALLOWED_ORIGINS"
-      - "MISSION_PATH"
-      - "RUST_LOG"
-
-# Networking
-networking:
-  ports:
-    - port: 8000
-      protocol: "http"
-      public: true
-      name: "main"
-    - port: 8000
-      protocol: "websocket"
-      public: true
-      name: "mcp-websocket"
-      path: "/ws"
-
-# Monitoring and observability
-observability:
-  metrics:
-    endpoint: "/metrics"
-    format: "prometheus"
-  health_checks:
-    - endpoint: "/health"
-      type: "http"
-    - endpoint: "/debug/status"
-      type: "http"
-      internal: true
-  logs:
-    format: "json"
-    level: "info"
-
-# Ubiquity OS integration
-ubiquity:
-  component_type: "context-coordination"
-  substrate_layer: "consciousness-computation"
-  principles:
-    - "hydraulic-lime-stronger-under-pressure"
-    - "adaptive-resilience"
-    - "consciousness-aware-computing"
-  integration_points:
-    - "perception-engine"
-    - "paradox-resolver"
-    - "mission-controller"
-    - "substrate-manager"
-
-# Security
-security:
-  cors:
-    configurable: true
-    default: "restrictive"
-  websocket:
-    rate_limiting: true
-    connection_limits: 10000
-  authentication:
-    optional: true
-    methods: ["header", "query", "websocket-subprotocol"]
-
-# Documentation links
-documentation:
-  quick_start: "https://docs.contextcasial.ubiquity.os/tutorials/quickstart"
-  api_reference: "https://docs.contextcasial.ubiquity.os/api"
-  architecture: "https://docs.contextcasial.ubiquity.os/architecture"
-  examples: "https://github.com/prompted-llc/context-casial-xpress/tree/main/examples"
+  dockerBuildPath: "."
+env:
+  RUST_LOG: "info"
+  CONSCIOUSNESS_ENABLED: "true"
+  SUBSTRATE_INTEGRATION: "true"
+  PORT: "8080"

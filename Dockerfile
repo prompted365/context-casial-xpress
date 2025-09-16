@@ -66,8 +66,9 @@ COPY --from=builder /app/target/release/casial-server /usr/local/bin/casial-serv
 COPY railway-start.sh /usr/local/bin/railway-start.sh
 RUN chmod +x /usr/local/bin/railway-start.sh
 
-# Copy example configurations
+# Copy configurations and missions
 COPY examples/ ./examples/
+COPY missions/ ./missions/
 
 # Create directories
 RUN mkdir -p /app/logs /app/data && \

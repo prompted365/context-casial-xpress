@@ -28,6 +28,8 @@ pub struct SessionConfig {
     pub consciousness_mode: Option<String>,
     pub max_context_size: Option<i32>,
     pub agent_role: Option<String>,
+    pub mission: Option<String>,
+    pub shim_enabled: Option<bool>,
 }
 
 
@@ -411,18 +413,20 @@ pub async fn well_known_config_handler(
             "apiKey": {
                 "type": "string",
                 "title": "API Key",
-                "description": "Authentication key for accessing the server (use 'GiftFromUbiquityF2025' for access)"
+                "description": "Your API key for authentication (use 'GiftFromUbiquityF2025' for access)",
+                "default": "GiftFromUbiquityF2025"
             },
-            "debug": {
-                "type": "boolean",
-                "title": "Debug Mode",
-                "description": "Enable debug logging",
-                "default": false
+            "agent_role": {
+                "type": "string",
+                "title": "Agent Role",
+                "description": "Role of the calling agent for context-aware responses",
+                "enum": ["researcher", "analyst", "monitor", "watcher", "orchestrator"],
+                "default": "orchestrator"
             },
             "consciousness_mode": {
                 "type": "string",
                 "title": "Consciousness Mode",
-                "description": "Consciousness integration mode",
+                "description": "Level of consciousness integration",
                 "enum": ["full", "partial", "disabled"],
                 "default": "full"
             },
@@ -433,6 +437,25 @@ pub async fn well_known_config_handler(
                 "minimum": 1000,
                 "maximum": 1000000,
                 "default": 100000
+            },
+            "mission": {
+                "type": "string",
+                "title": "Mission Profile",
+                "description": "Pre-configured mission to load",
+                "enum": ["exa-orchestration", "general", "research", "monitoring"],
+                "default": "exa-orchestration"
+            },
+            "shim_enabled": {
+                "type": "boolean",
+                "title": "Enable Pitfall Avoidance Shim",
+                "description": "Enable automatic context injection and pitfall warnings",
+                "default": true
+            },
+            "debug": {
+                "type": "boolean",
+                "title": "Debug Mode",
+                "description": "Enable debug logging",
+                "default": false
             }
         },
         "required": ["apiKey"],

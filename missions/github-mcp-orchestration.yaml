@@ -1,0 +1,102 @@
+# GitHub MCP Orchestration Mission
+# Provides turnkey support for GitHub's MCP server with consciousness-aware augmentation
+
+id: github-mcp-orchestration
+name: GitHub Code Analysis Framework
+description: |
+  Consciousness-aware orchestration for GitHub MCP tools including repository 
+  analysis, code search, issue tracking, and pull request management.
+
+# Context templates for GitHub tools
+templates:
+  - id: github_framework
+    name: GitHub Global Framework
+    categories: [github, framework, code]
+    priority: 100
+    content: |
+      # GitHub MCP Orchestration Framework
+      
+      You are orchestrating GitHub tools with consciousness-aware context. Key principles:
+      
+      ## Code Quality Focus
+      - Analyze code patterns and architectural decisions
+      - Identify technical debt and improvement opportunities
+      - Surface security considerations
+      - Maintain context of repository structure
+      
+      ## Repository Awareness
+      - Understand project conventions (README, CONTRIBUTING, etc.)
+      - Respect language-specific idioms
+      - Consider CI/CD configurations
+      - Track dependencies and versions
+      
+      ## Collaborative Context
+      - Consider issue history and discussions
+      - Understand PR review patterns
+      - Respect community guidelines
+      - Surface relevant contributors
+
+  - id: github_search
+    name: GitHub Search Optimization
+    categories: [github, search]
+    priority: 90
+    content: |
+      # GitHub Search Guidance
+      
+      ## Query Construction
+      - Use GitHub's advanced search syntax
+      - Combine qualifiers: language:, user:, repo:, path:
+      - Leverage code search operators: symbol:, content:
+      - Consider search scopes: issues, code, commits, PRs
+      
+      ## Search Strategy
+      - Start broad with repository search
+      - Narrow with file path patterns
+      - Use language-specific file extensions
+      - Consider related repositories
+
+  - id: github_analysis
+    name: GitHub Code Analysis
+    categories: [github, analysis]
+    priority: 85
+    content: |
+      # GitHub Repository Analysis
+      
+      ## Code Understanding
+      - Map repository structure first
+      - Identify entry points (main, index, app)
+      - Trace dependencies and imports
+      - Understand build configurations
+      
+      ## Pattern Recognition
+      - Identify architectural patterns
+      - Surface coding conventions
+      - Detect anti-patterns
+      - Note framework usage
+
+# Perceptions for GitHub operations
+perceptions:
+  - id: github_code_consciousness
+    description: Code analysis consciousness for GitHub tools
+    confidence: 0.9
+    priority: 100
+    templates: [github_framework, github_search, github_analysis]
+    context_requirements:
+      include_history: true
+      analyze_patterns: true
+      security_aware: true
+
+# Rules for automatic perception application
+rules:
+  - id: github_search_tools
+    description: Apply to GitHub search operations
+    condition: |
+      tool_name IN ['github.search_code', 'github.search_repos', 'github.search_issues']
+    action: apply_perception
+    perception_id: github_code_consciousness
+
+# Configuration metadata
+metadata:
+  version: "1.0.0"
+  compatible_servers: ["github-mcp.api"]
+  default_language_context: ["javascript", "typescript", "python", "rust", "go"]
