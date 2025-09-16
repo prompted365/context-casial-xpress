@@ -35,7 +35,7 @@ pub struct SessionConfig {
 }
 
 /// Query parameters that may include base64 encoded config
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 pub struct QueryParams {
     #[serde(flatten)]
     pub direct_params: SessionConfig,
