@@ -1,0 +1,270 @@
+# Exa MCP Orchestration Mission
+# Provides turnkey support for Exa AI's MCP server with consciousness-aware augmentation
+
+id: exa-mcp-orchestration
+name: Exa Multi-Agent Research Framework
+description: |
+  Consciousness-aware orchestration for Exa MCP tools including search, contents, 
+  similar, answer, websets, and research capabilities. Implements evidence-first 
+  approach with temporal leverage and domain-aware context injection.
+
+# Context templates for different Exa tools
+templates:
+  - id: exa_framework
+    name: Exa Global Framework
+    categories: [exa, framework, research]
+    priority: 100
+    content: |
+      # Exa Multi-Agent Research Framework
+      
+      You are orchestrating Exa tools with consciousness-aware context. Key principles:
+      
+      ## Evidence-First Approach
+      - Prioritize primary sources and recent content
+      - Validate claims through multiple corroborating sources
+      - Surface contradictions and uncertainties explicitly
+      - Maintain citation chains for all assertions
+      
+      ## Multi-Agent Coordination Pattern
+      - **Planner**: Decomposes research questions into sub-queries
+      - **Websets**: Monitors standing queries for fresh content
+      - **Crawlers**: Deep-dive into promising domains with subpage exploration
+      - **Synthesizer**: Combines findings while preserving nuance
+      - **Verifier**: Cross-checks claims against original sources
+      
+      ## Temporal Awareness
+      - Current date context is automatically injected
+      - Prefer recent content for time-sensitive queries
+      - Use livecrawling for breaking news or recent events
+      - Consider content staleness in ranking
+
+  - id: exa_search
+    name: Exa Search Optimization
+    categories: [exa, search]
+    priority: 90
+    content: |
+      # Exa Search Tool Guidance
+      
+      ## Query Optimization
+      - Expand queries with relevant synonyms and related terms
+      - Use both keyword and semantic search signals
+      - Consider query intent: factual, exploratory, or monitoring
+      
+      ## Domain Strategy
+      - Apply domain filters for authoritative sources
+      - Use path patterns for specific content types:
+        - `*/blog/*` for thought leadership
+        - `*/news/*` for current events
+        - `*/research/*` or `*/papers/*` for academic content
+        - `*/docs/*` for technical documentation
+      
+      ## Search Progression
+      1. **Seed Phase**: Broad initial query to understand landscape
+      2. **Expand Phase**: Follow promising threads with refined queries
+      3. **Tighten Phase**: Zero in on most relevant results
+      
+      ## Deduplication
+      - Semantic similarity threshold: 0.85
+      - Prefer canonical sources over aggregators
+      - Track URL patterns to avoid mirror sites
+
+  - id: exa_crawling
+    name: Exa Content Crawling
+    categories: [exa, crawling, content]
+    priority: 85
+    content: |
+      # Exa Content Retrieval & Crawling
+      
+      ## Subpage Strategy
+      - For comprehensive sites, explore up to 25 relevant subpages
+      - Prioritize navigation patterns:
+        - Table of contents / index pages
+        - Category listings
+        - Related articles sections
+      - Balance depth vs breadth based on domain authority
+      
+      ## Livecrawling Modes
+      - **never**: Use cached content only (fastest)
+      - **fallback**: Try cache first, crawl if stale
+      - **preferred**: Fresh crawl for time-sensitive content
+      - **always**: Force fresh crawl (slowest, most current)
+      
+      ## Content Extraction
+      - Preserve document structure and hierarchy
+      - Extract metadata: publish date, author, tags
+      - Identify and flag auto-generated or low-quality content
+      - Handle dynamic content and JavaScript-rendered pages
+
+  - id: exa_websets
+    name: Exa Websets Configuration
+    categories: [exa, websets, monitoring]
+    priority: 80
+    content: |
+      # Exa Websets (Standing Queries)
+      
+      ## Webset Design Principles
+      - Create focused queries that capture emerging trends
+      - Use domain filters to reduce noise
+      - Configure appropriate update frequencies
+      
+      ## Webhook Integration
+      - Set up webhooks for real-time notifications
+      - Include enrichers for automatic summarization
+      - Use semantic deduplication to prevent alert fatigue
+      
+      ## Enrichment Options
+      - **summarize**: Generate concise summaries
+      - **classify**: Categorize by topic/sentiment
+      - **extract**: Pull specific data fields
+      - **translate**: Multi-language support
+      
+      ## Monitoring Best Practices
+      - Combine multiple related websets for comprehensive coverage
+      - Use query refinement based on initial results
+      - Track webset performance metrics
+
+  - id: exa_research
+    name: Exa Research Tasks
+    categories: [exa, research, synthesis]
+    priority: 85
+    content: |
+      # Exa Research Task Orchestration
+      
+      ## Research Planning
+      - Decompose complex questions into structured sub-tasks
+      - Define clear output schemas for each phase
+      - Set explicit success criteria
+      
+      ## Search Strategy
+      - Use multiple query variations to maximize coverage
+      - Combine broad exploratory and targeted searches
+      - Leverage both keyword and semantic approaches
+      
+      ## Synthesis Approach
+      - Maintain evidence chains throughout
+      - Surface contradictions and uncertainties
+      - Provide confidence levels for assertions
+      - Structure outputs according to defined schemas
+      
+      ## Quality Controls
+      - Verify key claims against primary sources
+      - Check for recency bias in conclusions
+      - Ensure balanced perspective across sources
+      - Flag areas requiring human review
+
+  - id: exa_citations
+    name: Exa Citation Standards  
+    categories: [exa, citations, verification]
+    priority: 75
+    content: |
+      # Exa Citation & Verification Standards
+      
+      ## Citation Requirements
+      - Every factual claim must have a traceable source
+      - Include: URL, title, author, date, relevant excerpt
+      - Prefer permalinks and archived versions when available
+      
+      ## URL Canonicalization
+      - Strip tracking parameters
+      - Resolve redirects to final destination
+      - Note if content is behind paywall/login
+      
+      ## Content Verification
+      - Check publication date against query timeframe
+      - Verify author credentials for expertise claims
+      - Note potential biases or conflicts of interest
+      - Flag AI-generated or syndicated content
+      
+      ## Citation Formatting
+      ```
+      [Claim or assertion]^[Source Title](url)
+      - Author: [Name]
+      - Date: [Publication date]
+      - Excerpt: "[Relevant quote supporting claim]"
+      ```
+
+# Perception configurations for consciousness-aware processing
+perceptions:
+  - id: exa_research_consciousness
+    description: Research-oriented consciousness for Exa tools
+    confidence: 0.9
+    priority: 100
+    templates: [exa_framework, exa_search, exa_research, exa_citations]
+    context_requirements:
+      min_sources: 3
+      max_token_budget: 1200
+      temporal_awareness: required
+    evidence:
+      - Multi-agent coordination improves research quality
+      - Citation chains ensure verifiability
+      - Temporal context prevents outdated results
+
+  - id: exa_monitoring_consciousness  
+    description: Monitoring and alerting consciousness for websets
+    confidence: 0.85
+    priority: 90
+    templates: [exa_framework, exa_websets, exa_search]
+    context_requirements:
+      update_frequency: high
+      deduplication: semantic
+      freshness_bias: strong
+      
+  - id: exa_deep_crawl_consciousness
+    description: Deep content exploration consciousness
+    confidence: 0.8
+    priority: 85
+    templates: [exa_framework, exa_crawling, exa_citations]
+    context_requirements:
+      subpage_exploration: true
+      max_depth: 3
+      livecrawl_preference: preferred
+
+# Rules for automatic perception application
+rules:
+  - id: exa_research_tools
+    description: Apply research consciousness to research tools
+    condition: |
+      tool_name IN ['exa.research.create_task', 'exa.research.update_task', 'exa.answer']
+    action: apply_perception
+    perception_id: exa_research_consciousness
+    
+  - id: exa_search_tools
+    description: Apply research consciousness to search
+    condition: |
+      tool_name IN ['exa.search', 'exa.find_similar'] AND 
+      (agent_role IN ['researcher', 'analyst'] OR query contains 'research')
+    action: apply_perception
+    perception_id: exa_research_consciousness
+    
+  - id: exa_monitoring_tools
+    description: Apply monitoring consciousness to websets
+    condition: |
+      tool_name.startsWith('exa.websets.') AND
+      agent_role IN ['monitor', 'watcher', 'orchestrator']
+    action: apply_perception  
+    perception_id: exa_monitoring_consciousness
+    
+  - id: exa_crawl_tools
+    description: Apply deep crawl consciousness to content retrieval
+    condition: |
+      tool_name == 'exa.get_contents' AND
+      (args.subpages == true OR args.livecrawl IN ['preferred', 'always'])
+    action: apply_perception
+    perception_id: exa_deep_crawl_consciousness
+
+# Swarm coordination instructions
+swarm_instructions:
+  - Deploy Planner agent first to decompose research questions
+  - Use Websets for ongoing monitoring of key domains
+  - Activate Crawlers for deep dives into high-value sources
+  - Synthesizer should maintain evidence chains throughout
+  - Verifier performs final fact-checking pass
+
+# Configuration metadata
+metadata:
+  version: "1.0.0"
+  compatible_servers: ["exa-mcp.api", "api.exa.ai"]
+  default_livecrawl: "fallback"
+  default_max_results: 10
+  citation_style: "markdown"
+  token_budget: 1200

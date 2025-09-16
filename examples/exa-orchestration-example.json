@@ -1,0 +1,140 @@
+{
+  "example": "Orchestrating Exa MCP Tools with Context-Casial-Xpress",
+  "description": "This example shows how to use Context-Casial-Xpress to orchestrate Exa MCP server tools with consciousness-aware augmentation",
+  
+  "step1_discover_tools": {
+    "tool": "discover_mcp_tools",
+    "arguments": {
+      "server_url": "https://exa-mcp-server.api",
+      "analyze_for_orchestration": true,
+      "perception_mapping": true
+    },
+    "expected_response": {
+      "tools": ["exa.search", "exa.get_contents", "exa.find_similar", "exa.answer", "exa.websets.create", "exa.research.create_task"],
+      "orchestration_strategies": ["Apply exa_research_consciousness for research tools", "Use exa_monitoring_consciousness for websets"],
+      "perception_mappings": {
+        "exa.search": ["exa_framework", "exa_search", "exa_citations"],
+        "exa.research.create_task": ["exa_framework", "exa_research", "exa_citations"]
+      }
+    }
+  },
+  
+  "step2_research_with_context": {
+    "tool": "orchestrate_mcp_proxy",
+    "arguments": {
+      "target_server": "https://exa-mcp-server.api",
+      "tool_name": "exa.search",
+      "original_params": {
+        "query": "consciousness-aware computing implementations 2024"
+      },
+      "augmentation_config": {
+        "inject_context": true,
+        "add_swarm_instructions": [
+          "Focus on production implementations",
+          "Prioritize open source projects",
+          "Include recent academic papers"
+        ],
+        "perception_ids": ["exa_research_consciousness"],
+        "domain_filters": {
+          "include_domains": ["*.github.com", "*.arxiv.org", "*/research/*"],
+          "exclude_domains": ["*.medium.com", "*.substack.com"]
+        },
+        "livecrawl_mode": "preferred"
+      }
+    },
+    "injected_context_preview": {
+      "_shim_context": {
+        "current_date": "2024-12-16",
+        "execution_metadata": {
+          "tool_name": "exa.search",
+          "agent_role": "researcher"
+        },
+        "pitfall_warnings": [
+          "Current date is 2024-12-16 - ensure any date-based queries use this as reference",
+          "When searching for recent events, remember to include the current year in queries",
+          "Maintain evidence chains and cite all sources"
+        ]
+      },
+      "_perception_context": {
+        "exa_framework": "You are orchestrating Exa tools with consciousness-aware context...",
+        "exa_search": "Query Optimization: Expand queries with relevant synonyms..."
+      }
+    }
+  },
+  
+  "step3_create_webset": {
+    "tool": "orchestrate_mcp_proxy",
+    "arguments": {
+      "target_server": "https://exa-mcp-server.api",
+      "tool_name": "exa.websets.create",
+      "original_params": {
+        "name": "consciousness-computing-monitor",
+        "query": "new consciousness-aware AI systems OR hydraulic lime computing",
+        "includeDomains": ["*.github.com", "*.arxiv.org"],
+        "webhookUrl": "https://your-webhook.com/exa-updates"
+      },
+      "augmentation_config": {
+        "inject_context": true,
+        "perception_ids": ["exa_monitoring_consciousness"],
+        "add_swarm_instructions": [
+          "Monitor for new repositories and papers",
+          "Use semantic deduplication threshold 0.85",
+          "Configure enrichers for automatic summarization"
+        ]
+      }
+    }
+  },
+  
+  "step4_deep_research": {
+    "tool": "orchestrate_mcp_proxy",
+    "arguments": {
+      "target_server": "https://exa-mcp-server.api",
+      "tool_name": "exa.research.create_task",
+      "original_params": {
+        "instruction": "Analyze the current state of consciousness-aware computing implementations",
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "summary": {"type": "string"},
+            "key_projects": {"type": "array"},
+            "technical_approaches": {"type": "array"},
+            "future_directions": {"type": "array"}
+          }
+        }
+      },
+      "augmentation_config": {
+        "inject_context": true,
+        "perception_ids": ["exa_research_consciousness"],
+        "paradox_tolerance": 0.8,
+        "add_swarm_instructions": [
+          "Deploy multi-agent pattern: Planner -> Websets -> Crawlers -> Synthesizer -> Verifier",
+          "Maintain citation chains throughout",
+          "Surface contradictions explicitly"
+        ]
+      }
+    }
+  },
+  
+  "configuration": {
+    "start_server": "casial-server start --mission missions/exa-mcp-orchestration.yaml",
+    "api_key": "GiftFromUbiquityF2025",
+    "endpoints": {
+      "websocket": "ws://localhost:8080/ws",
+      "http_sse": "http://localhost:8080/mcp?apiKey=GiftFromUbiquityF2025&agent_role=researcher",
+      "shim_config": "http://localhost:8080/debug/shim"
+    }
+  },
+  
+  "notes": {
+    "mission_template": "The exa-mcp-orchestration.yaml mission provides all Exa-specific templates and perceptions",
+    "agent_roles": ["researcher", "analyst", "monitor", "watcher", "orchestrator"],
+    "livecrawl_modes": ["never", "fallback", "preferred", "always"],
+    "consciousness_features": [
+      "Temporal awareness (current date injection)",
+      "Evidence-first approach with citations",
+      "Multi-agent coordination patterns",
+      "Paradox detection and resolution",
+      "Domain-aware context filtering"
+    ]
+  }
+}

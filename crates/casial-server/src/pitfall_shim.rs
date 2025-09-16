@@ -97,7 +97,7 @@ impl PitfallAvoidanceShim {
     }
     
     /// Augment tool request with pitfall avoidance context
-    pub fn augment_request(&self, tool_name: &str, original_params: &Value) -> Result<Value> {
+    pub fn augment_request(&self, tool_name: &str, original_params: &Value, agent_role: Option<&str>) -> Result<Value> {
         if !self.config.enabled {
             return Ok(original_params.clone());
         }
@@ -140,12 +140,17 @@ impl PitfallAvoidanceShim {
         
         // Add execution metadata
         if self.config.features.add_execution_metadata {
-            shim_context.insert("execution_metadata".to_string(), json!({
-                "tool_name": tool_name,
-                "shim_version": "1.0.0",
-                "request_id": uuid::Uuid::new_v4().to_string(),
-                "timestamp": Utc::now().timestamp_millis()
-            }));
+            let mut metadata = serde_json::Map::new();
+            metadata.insert("tool_name".to_string(), json!(tool_name));
+            metadata.insert("shim_version".to_string(), json!("1.0.0"));
+            metadata.insert("request_id".to_string(), json!(uuid::Uuid::new_v4().to_string()));
+            metadata.insert("timestamp".to_string(), json!(Utc::now().timestamp_millis()));
+            
+            if let Some(role) = agent_role {
+                metadata.insert("agent_role".to_string(), json!(role));
+            }
+            
+            shim_context.insert("execution_metadata".to_string(), json!(metadata));
         }
         
         // Include system information if enabled
@@ -159,7 +164,7 @@ impl PitfallAvoidanceShim {
         
         // Add pitfall warnings
         if self.config.features.pitfall_warnings {
-            let warnings = self.get_contextual_warnings(tool_name);
+            let warnings = self.get_contextual_warnings(tool_name, agent_role);
             if !warnings.is_empty() {
                 shim_context.insert("pitfall_warnings".to_string(), json!(warnings));
             }
@@ -208,7 +213,7 @@ impl PitfallAvoidanceShim {
     }
     
     /// Get contextual warnings for specific tools
-    fn get_contextual_warnings(&self, tool_name: &str) -> Vec<String> {
+    fn get_contextual_warnings(&self, tool_name: &str, agent_role: Option<&str>) -> Vec<String> {
         let mut warnings = Vec::new();
         
         // Add general warnings
@@ -223,11 +228,50 @@ impl PitfallAvoidanceShim {
                 warnings.push("When searching for recent events, remember to include the current year in queries".to_string());
                 warnings.push("For documentation searches, prefer recent versions by including year constraints".to_string());
             }
+            tool if tool.starts_with("exa.") => {
+                warnings.push("When searching for recent events, remember to include the current year in queries".to_string());
+                warnings.push("For documentation searches, prefer recent versions by including year constraints".to_string());
+                
+                // Exa-specific warnings based on tool
+                if tool_name.starts_with("exa.research") {
+                    warnings.push("Research tasks should define clear output schemas for structured results".to_string());
+                    warnings.push("Use multiple query variations to maximize coverage".to_string());
+                }
+                
+                if tool_name == "exa.websets.create" {
+                    warnings.push("Configure webhooks for real-time notifications on standing queries".to_string());
+                    warnings.push("Use semantic deduplication to prevent alert fatigue".to_string());
+                }
+                
+                if tool_name == "exa.get_contents" {
+                    warnings.push("Consider using livecrawl='preferred' for time-sensitive content".to_string());
+                    warnings.push("Enable subpages exploration for comprehensive site coverage".to_string());
+                }
+            }
             "orchestrate_mcp_proxy" => {
                 warnings.push("Ensure target server URLs are properly validated before proxying".to_string());
                 warnings.push("Consider consciousness coordination impacts on downstream servers".to_string());
             }
             _ => {}
+        }
+        
+        // Agent role-specific warnings
+        if let Some(role) = agent_role {
+            match role {
+                "researcher" | "analyst" => {
+                    warnings.push("Maintain evidence chains and cite all sources".to_string());
+                    warnings.push("Surface contradictions and uncertainties explicitly".to_string());
+                }
+                "monitor" | "watcher" => {
+                    warnings.push("Set up appropriate update frequencies for monitoring tasks".to_string());
+                    warnings.push("Use domain filters to reduce noise in standing queries".to_string());
+                }
+                "orchestrator" => {
+                    warnings.push("Coordinate multi-agent patterns for complex research tasks".to_string());
+                    warnings.push("Ensure proper task decomposition before execution".to_string());
+                }
+                _ => {}
+            }
         }
         
         warnings
@@ -294,7 +338,7 @@ mod tests {
     fn test_augment_request() {
         let shim = PitfallAvoidanceShim::new(ShimConfig::default());
         let original = json!({"query": "test"});
-        let augmented = shim.augment_request("test_tool", &original).unwrap();
+        let augmented = shim.augment_request("test_tool", &original, None).unwrap();
         
         assert!(augmented["_shim_context"].is_object());
         assert!(augmented["_shim_context"]["current_date"].is_string());
@@ -319,7 +363,7 @@ mod tests {
         let shim = PitfallAvoidanceShim::new(config);
         
         let original = json!({"query": "test"});
-        let augmented = shim.augment_request("test_tool", &original).unwrap();
+        let augmented = shim.augment_request("test_tool", &original, None).unwrap();
         assert_eq!(augmented, original);
     }
 }

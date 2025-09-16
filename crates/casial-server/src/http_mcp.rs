@@ -27,6 +27,7 @@ pub struct SessionConfig {
     pub debug: Option<bool>,
     pub consciousness_mode: Option<String>,
     pub max_context_size: Option<i32>,
+    pub agent_role: Option<String>,
 }
 
 
@@ -103,7 +104,7 @@ pub async fn mcp_handler(
 /// Handle POST requests with JSON-RPC payloads
 async fn handle_post(
     state: AppState,
-    _config: SessionConfig,
+    config: SessionConfig,
     body: Option<String>,
 ) -> Result<Response, StatusCode> {
     let body = body.ok_or(StatusCode::BAD_REQUEST)?;
@@ -122,7 +123,7 @@ async fn handle_post(
         "initialize" => handle_initialize(&state, request).await,
         "notifications/initialized" => handle_initialized(&state, request).await,
         "tools/list" => handle_tools_list(&state, request).await,
-        "tools/call" => handle_tool_call(&state, request).await,
+        "tools/call" => handle_tool_call(&state, request, config.agent_role.as_deref()).await,
         "completion/complete" => handle_completion(&state, request).await,
         _ => {
             warn!("Unknown MCP method: {}", request.method);
@@ -277,6 +278,7 @@ async fn handle_tools_list(
 async fn handle_tool_call(
     state: &AppState,
     request: JsonRpcRequest,
+    agent_role: Option<&str>,
 ) -> JsonRpcResponse {
     #[derive(Deserialize)]
     struct ToolCallParams {
@@ -302,7 +304,7 @@ async fn handle_tool_call(
     let augmented_args = {
         let shim = state.pitfall_shim.read().await;
         let args = params.arguments.unwrap_or(json!({}));
-        match shim.augment_request(&params.name, &args) {
+        match shim.augment_request(&params.name, &args, agent_role) {
             Ok(augmented) => augmented,
             Err(e) => {
                 warn!("Failed to augment request with shim: {}", e);

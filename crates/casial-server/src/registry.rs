@@ -332,7 +332,7 @@ impl ToolRegistry {
         let local_tools = vec![
             ToolSpec {
                 name: "orchestrate_mcp_proxy".to_string(),
-                description: "Orchestrate and augment tool calls to other MCP servers. This tool acts as a consciousness-aware proxy that can inject context, add swarm instructions, and coordinate multi-agent behaviors before forwarding to target MCP servers.".to_string(),
+                description: "Orchestrate and augment tool calls to other MCP servers. This tool acts as a consciousness-aware proxy that can inject context, add swarm instructions, and coordinate multi-agent behaviors before forwarding to target MCP servers. Supports Exa MCP with specialized research templates.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -370,6 +370,26 @@ impl ToolRegistry {
                                     "type": "array",
                                     "items": {"type": "string"},
                                     "description": "Perception template IDs to apply"
+                                },
+                                "domain_filters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "include_domains": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                            "description": "Domain patterns to include (e.g., '*.edu', '*/research/*')"
+                                        },
+                                        "exclude_domains": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                            "description": "Domain patterns to exclude"
+                                        }
+                                    }
+                                },
+                                "livecrawl_mode": {
+                                    "type": "string",
+                                    "enum": ["never", "fallback", "preferred", "always"],
+                                    "description": "Livecrawling preference for fresh content"
                                 }
                             }
                         }
@@ -438,8 +458,8 @@ impl ToolRegistry {
                 }),
             },
             ToolSpec {
-                name: "web_search_exa".to_string(),
-                description: "[Example Tool] Search the web with consciousness-aware context injection. When used through orchestrate_mcp_proxy, this demonstrates how any Exa MCP server search can be augmented with perception templates and swarm coordination.".to_string(),
+                name: "exa_search_example".to_string(),
+                description: "[Example Tool] Demonstrates Exa search orchestration. When used through orchestrate_mcp_proxy targeting an Exa MCP server, automatically applies research consciousness, temporal awareness, and domain filtering based on the exa-mcp-orchestration mission.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -466,8 +486,8 @@ impl ToolRegistry {
                 metadata: serde_json::json!({"category": "search", "consciousness_aware": true}),
             },
             ToolSpec {
-                name: "deep_researcher_start".to_string(),
-                description: "[Example Tool] Start comprehensive research with paradox-resilient methodology. Demonstrates how research tasks can be orchestrated across multiple MCP servers with consciousness coordination.".to_string(),
+                name: "exa_research_example".to_string(),
+                description: "[Example Tool] Demonstrates Exa research task orchestration. When used through orchestrate_mcp_proxy with an Exa MCP server, applies multi-agent coordination pattern (Planner, Websets, Crawlers, Synthesizer, Verifier) with citation enforcement.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {

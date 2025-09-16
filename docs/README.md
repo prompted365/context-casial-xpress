@@ -517,6 +517,9 @@ docs/
 │   ├── railway.md           # Railway deployment guide
 │   ├── docker.md            # Docker containerization
 │   └── kubernetes.md        # Kubernetes orchestration
+├── integrations/
+│   ├── exa-mcp.md           # Exa AI MCP orchestration guide
+│   └── README.md            # Integration overview
 ├── api/
 │   ├── websocket.md         # WebSocket MCP API
 │   ├── http.md             # HTTP endpoints
