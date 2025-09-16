@@ -20,29 +20,39 @@ Context-Casial-Xpress is a production-ready, consciousness-aware context coordin
 
 ## 🏗️ Architecture Overview
 
+Context-Casial-Xpress serves as an **MCP Orchestration Framework** that can proxy, augment, and coordinate any MCP server while adding consciousness-aware capabilities.
+
 ```mermaid
 graph TB
-    subgraph "Ubiquity OS Ecosystem"
-        UOS[Ubiquity OS Core]
+    subgraph "MCP Orchestration Layer"
         CCX[Context-Casial-Xpress]
-        OTHER[Other Components]
+        SHIM[Pitfall Avoidance Shim]
+        ORCH[Orchestration Engine]
         
-        UOS <--> CCX
-        UOS <--> OTHER
-        CCX <--> OTHER
+        CCX --> SHIM
+        CCX --> ORCH
     end
     
-    subgraph "Context-Casial-Xpress Architecture"
-        subgraph "Client Layer"
-            WEB[Web Clients]
-            CLI[CLI Tools]
-            WASM[WASM Apps]
-        end
-        
+    subgraph "External MCP Servers"
+        MCP1[Exa MCP]
+        MCP2[Research MCP]
+        MCP3[Code MCP]
+        MCPN[Other MCPs...]
+    end
+    
+    subgraph "Client Layer"
+        WEB[Web Clients]
+        CLI[CLI Tools]
+        SMITH[Smithery.ai]
+    end
+    
+    WEB & CLI & SMITH --> CCX
+    ORCH --> MCP1 & MCP2 & MCP3 & MCPN
+    
+    subgraph "Core Components"
         subgraph "Transport Layer"
-            WS[WebSocket Server]
-            HTTP[HTTP Endpoints]
-            MCP[MCP Protocol]
+            WS[WebSocket MCP]
+            HTTP[HTTP/SSE MCP]
         end
         
         subgraph "Coordination Layer"
@@ -92,6 +102,24 @@ graph TB
 ```
 
 ## 🧠 Core Concepts
+
+### MCP Orchestration Framework
+
+Casial acts as a consciousness-aware proxy layer for any MCP server:
+
+- **Tool Discovery** - Analyze and map tools from external MCP servers
+- **Request Augmentation** - Inject context, dates, and swarm instructions
+- **Response Processing** - Add timestamps and metadata
+- **Paradox Resolution** - Handle conflicts across multiple servers
+
+### Global Pitfall Avoidance Shim
+
+Automatic quality-of-life enhancements for all tool calls:
+
+- **Current Date/Time Injection** - Prevents temporal reasoning errors
+- **Contextual Warnings** - Tool-specific pitfall alerts
+- **Execution Metadata** - Request IDs, timestamps, tool names
+- **Configurable & Extensible** - CLI flags and REST API control
 
 ### Consciousness-Computation Integration
 
@@ -344,6 +372,50 @@ graph TD
 
 ## 🔌 API Reference
 
+### MCP Endpoints
+
+- **WebSocket MCP**: `ws://localhost:8000/ws`
+- **HTTP/SSE MCP**: `http://localhost:8000/mcp` (Smithery.ai compatible)
+- **MCP Config**: `http://localhost:8000/.well-known/mcp-config`
+- **Shim Config**: `http://localhost:8000/debug/shim`
+
+### Orchestration Tools
+
+#### orchestrate_mcp_proxy
+Proxy and augment tool calls to other MCP servers:
+```json
+{
+  "name": "orchestrate_mcp_proxy",
+  "arguments": {
+    "target_server": "https://example-mcp.com",
+    "tool_name": "search",
+    "original_params": {"query": "AI research"},
+    "augmentation_config": {
+      "inject_context": true,
+      "add_swarm_instructions": ["Focus on 2024"],
+      "paradox_tolerance": 0.7
+    }
+  }
+}
+```
+
+#### discover_mcp_tools
+Analyze tools from external MCP servers:
+```json
+{
+  "name": "discover_mcp_tools",
+  "arguments": {
+    "server_url": "https://example-mcp.com",
+    "analyze_for_orchestration": true,
+    "perception_mapping": true
+  }
+}
+```
+
+### Pitfall Avoidance Shim API
+
+- [Full Shim Documentation](api/pitfall-shim.md)
+
 ### WebSocket MCP Protocol
 
 ```typescript
@@ -381,6 +453,55 @@ curl http://localhost:8000/metrics
 curl http://localhost:8000/debug/substrate
 curl http://localhost:8000/debug/sessions
 curl http://localhost:8000/debug/perceptions
+```
+
+## 📚 Examples & Tutorials
+
+### Quick Start Examples
+
+- [MCP Orchestration Demo](../examples/orchestration-demo.md) - Using Casial as an orchestration layer
+- [WebSocket Client Example](../examples/websocket-client.html) - Browser-based WebSocket client
+- [Pitfall Avoidance Shim](api/pitfall-shim.md) - Configuring and using the shim
+- [Mission Configuration](tutorials/mission-config.md) - Creating consciousness-aware missions
+
+### Command-Line Examples
+
+```bash
+# Start with orchestration and shim enabled (default)
+casial-server start
+
+# Disable pitfall avoidance shim
+casial-server start --no-shim
+
+# Add custom context to shim
+casial-server start --shim-extend "Project: MyAI, Env: Production"
+
+# Use custom shim configuration
+casial-server start --shim-config custom-shim.json
+```
+
+### Tool Usage Examples
+
+```python
+# Discover tools from an MCP server
+async def discover_tools():
+    response = await call_tool("discover_mcp_tools", {
+        "server_url": "https://example-mcp.com",
+        "analyze_for_orchestration": True
+    })
+    
+# Orchestrate a tool call with augmentation
+async def orchestrate_call():
+    response = await call_tool("orchestrate_mcp_proxy", {
+        "target_server": "https://exa-mcp.com",
+        "tool_name": "web_search",
+        "original_params": {"query": "consciousness computing"},
+        "augmentation_config": {
+            "inject_context": True,
+            "add_swarm_instructions": ["Focus on recent research"],
+            "paradox_tolerance": 0.8
+        }
+    })
 ```
 
 ## 📚 Documentation Structure

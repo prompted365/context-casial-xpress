@@ -28,6 +28,7 @@ mod http_mcp;
 mod mcp;
 mod metrics;
 mod mission;
+mod pitfall_shim;
 mod registry;
 mod websocket;
 
@@ -38,6 +39,7 @@ use metrics::MetricsCollector;
 use mission::MissionManager;
 use registry::ToolRegistry;
 use websocket::WebSocketHandler;
+use pitfall_shim::{PitfallAvoidanceShim, ShimConfig};
 
 /// Context-Casial-Xpress: Consciousness-aware context coordination for AI systems
 #[derive(Parser)]
@@ -68,6 +70,22 @@ enum Commands {
         /// Enable debug mode
         #[arg(short, long)]
         debug: bool,
+
+        /// Enable global pitfall avoidance shim (enabled by default)
+        #[arg(long, default_value = "true")]
+        shim: bool,
+
+        /// Disable global pitfall avoidance shim
+        #[arg(long, conflicts_with = "shim")]
+        no_shim: bool,
+
+        /// Extend shim with custom string
+        #[arg(long, value_name = "STRING")]
+        shim_extend: Option<String>,
+
+        /// Path to custom shim configuration
+        #[arg(long, value_name = "FILE")]
+        shim_config: Option<PathBuf>,
     },
     /// Validate mission configuration
     Validate {
@@ -93,10 +111,11 @@ pub struct AppState {
     tool_registry: Arc<ToolRegistry>,
     federation_manager: Arc<RwLock<Option<McpFederationManager>>>,
     config: Arc<ServerConfig>,
+    pitfall_shim: Arc<RwLock<PitfallAvoidanceShim>>,
 }
 
 impl AppState {
-    fn new(config: ServerConfig) -> Self {
+    fn new(config: ServerConfig, shim: PitfallAvoidanceShim) -> Self {
         // Initialize tool registry with local tools
         let tool_registry = Arc::new(ToolRegistry::new());
         if let Err(e) = tool_registry.seed_with_local_tools() {
@@ -119,6 +138,7 @@ impl AppState {
             tool_registry,
             federation_manager: Arc::new(RwLock::new(federation_manager)),
             config: Arc::new(config),
+            pitfall_shim: Arc::new(RwLock::new(shim)),
         }
     }
 }
@@ -133,7 +153,11 @@ async fn main() -> Result<()> {
             port,
             mission,
             debug,
-        } => start_server(config, port, mission, debug).await,
+            shim,
+            no_shim,
+            shim_extend,
+            shim_config,
+        } => start_server(config, port, mission, debug, shim, no_shim, shim_extend, shim_config).await,
         Commands::Validate { mission_file } => validate_mission(mission_file).await,
         Commands::Status { endpoint } => show_status(endpoint).await,
     }
@@ -144,6 +168,10 @@ async fn start_server(
     port: u16,
     mission_path: Option<PathBuf>,
     debug: bool,
+    shim: bool,
+    no_shim: bool,
+    shim_extend: Option<String>,
+    shim_config_path: Option<PathBuf>,
 ) -> Result<()> {
     // Initialize tracing
     init_tracing(debug);
@@ -177,8 +205,34 @@ async fn start_server(
         }
     );
 
+    // Initialize pitfall avoidance shim
+    let shim_enabled = shim && !no_shim;
+    let shim = if let Some(shim_config_path) = shim_config_path {
+        // Load custom shim configuration
+        info!("📄 Loading custom shim configuration: {}", shim_config_path.display());
+        let shim_config_str = tokio::fs::read_to_string(&shim_config_path).await?;
+        let shim_config: ShimConfig = serde_json::from_str(&shim_config_str)?;
+        PitfallAvoidanceShim::new(shim_config)
+    } else {
+        // Create shim from command-line arguments
+        PitfallAvoidanceShim::from_args(shim_enabled, shim_extend)
+    };
+
+    info!(
+        "🛡️  Pitfall avoidance shim: {}",
+        if shim.is_enabled() { "✅ Enabled" } else { "❌ Disabled" }
+    );
+    
+    if shim.is_enabled() {
+        info!("    Current date injection: ✅");
+        info!("    Timestamp returns: ✅");
+        if let Ok(config_json) = shim.export_config() {
+            tracing::debug!("Shim configuration: {}", config_json);
+        }
+    }
+
     // Initialize application state
-    let state = AppState::new(config.clone());
+    let state = AppState::new(config.clone(), shim);
 
     // Load mission if provided
     if let Some(mission_path) = mission_path {
@@ -397,6 +451,7 @@ async fn build_router(state: AppState) -> Result<Router> {
         .route("/debug/sessions", get(debug_sessions))
         .route("/debug/perceptions", get(debug_perceptions))
         .route("/debug/sprawl", get(debug_sprawl))
+        .route("/debug/shim", get(debug_shim).post(update_shim))
         // State management
         .with_state(state)
         // Middleware
@@ -674,6 +729,52 @@ async fn debug_sprawl(
     });
 
     Ok(axum::Json(sprawl_info))
+}
+
+/// Debug endpoint to view shim configuration
+async fn debug_shim(State(state): State<AppState>) -> impl IntoResponse {
+    let shim = state.pitfall_shim.read().await;
+    let config = shim.get_config();
+    
+    axum::Json(serde_json::json!({
+        "shim_status": {
+            "enabled": config.enabled,
+            "inject_datetime": config.inject_datetime,
+            "timestamp_returns": config.timestamp_returns,
+            "custom_extension": config.custom_extension,
+            "features": {
+                "inject_timezone": config.features.inject_timezone,
+                "add_execution_metadata": config.features.add_execution_metadata,
+                "include_system_info": config.features.include_system_info,
+                "date_format_hints": config.features.date_format_hints,
+                "pitfall_warnings": config.features.pitfall_warnings
+            }
+        },
+        "current_context_example": {
+            "current_date": chrono::Local::now().format("%Y-%m-%d").to_string(),
+            "current_time": chrono::Local::now().format("%H:%M:%S").to_string(),
+            "timezone": chrono::Local::now().format("%Z").to_string()
+        },
+        "edit_instructions": "POST to /debug/shim with JSON configuration to update"
+    }))
+}
+
+/// Update shim configuration via POST
+async fn update_shim(
+    State(state): State<AppState>,
+    axum::Json(new_config): axum::Json<ShimConfig>,
+) -> impl IntoResponse {
+    let mut shim = state.pitfall_shim.write().await;
+    shim.update_config(new_config);
+    
+    (
+        axum::http::StatusCode::OK,
+        axum::Json(serde_json::json!({
+            "status": "success",
+            "message": "Shim configuration updated",
+            "new_config": shim.get_config()
+        }))
+    )
 }
 
 /// Graceful shutdown signal handler
