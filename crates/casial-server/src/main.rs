@@ -396,7 +396,14 @@ fn create_cors_layer() -> tower_http::cors::CorsLayer {
         tracing::info!("ALLOWED_ORIGINS='*', allowing all origins");
         return CorsLayer::new()
             .allow_origin(Any)
-            .allow_headers(Any)
+            .allow_headers(vec![
+                header::CONTENT_TYPE,
+                header::AUTHORIZATION,
+                header::ACCEPT,
+                HeaderName::from_static("x-session-id"),
+                HeaderName::from_static("mcp-session-id"),
+                HeaderName::from_static("mcp-protocol-version"),
+            ])
             .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
             .expose_headers([
                 HeaderName::from_static("mcp-session-id"),
@@ -421,7 +428,14 @@ fn create_cors_layer() -> tower_http::cors::CorsLayer {
             tracing::info!("Successfully parsed {} origins", origin_list.len());
             CorsLayer::new()
                 .allow_origin(origin_list)
-                .allow_headers(Any)
+                .allow_headers(vec![
+                    header::CONTENT_TYPE,
+                    header::AUTHORIZATION,
+                    header::ACCEPT,
+                    HeaderName::from_static("x-session-id"),
+                    HeaderName::from_static("mcp-session-id"),
+                    HeaderName::from_static("mcp-protocol-version"),
+                ])
                 .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
                 .expose_headers([
                     HeaderName::from_static("mcp-session-id"),

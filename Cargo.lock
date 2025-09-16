@@ -393,6 +393,7 @@ dependencies = [
  "ahash",
  "anyhow",
  "axum",
+ "base64 0.22.1",
  "casial-core",
  "chrono",
  "clap",
