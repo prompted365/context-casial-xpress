@@ -6,6 +6,7 @@
 use anyhow::Result;
 use axum::{
     extract::{ws::WebSocketUpgrade, Query, State},
+    http::Method,
     response::IntoResponse,
     routing::get,
     Router,
@@ -445,7 +446,7 @@ async fn build_router(state: AppState) -> Result<Router> {
         // HTTP/SSE MCP endpoint for Smithery integration
         .route("/mcp", get(mcp_get_handler).post(mcp_post_handler).head(mcp_head_handler).options(mcp_options_handler))
         // Well-known MCP configuration endpoint
-        .route("/.well-known/mcp-config", get(http_mcp::well_known_config_handler).post(http_mcp::well_known_config_handler))
+        .route("/.well-known/mcp-config", get(well_known_get_handler).post(well_known_post_handler))
         // Health check endpoint
         .route("/", get(health_check))
         .route("/health", get(health_check))
@@ -510,6 +511,21 @@ async fn mcp_options_handler(
     query: Query<http_mcp::QueryParams>,
 ) -> impl IntoResponse {
     http_mcp::mcp_handler(axum::http::Method::OPTIONS, State(state), query, None).await
+}
+
+/// Well-known configuration GET handler
+async fn well_known_get_handler(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    http_mcp::well_known_config_handler(Method::GET, State(state), None).await
+}
+
+/// Well-known configuration POST handler  
+async fn well_known_post_handler(
+    State(state): State<AppState>,
+    body: String,
+) -> impl IntoResponse {
+    http_mcp::well_known_config_handler(Method::POST, State(state), Some(body)).await
 }
 
 /// Health check endpoint

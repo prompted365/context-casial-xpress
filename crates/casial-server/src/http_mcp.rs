@@ -462,81 +462,102 @@ async fn handle_completion(
 
 /// Well-known configuration endpoint handler
 pub async fn well_known_config_handler(
-    State(_state): State<AppState>,
-) -> Result<Json<Value>, StatusCode> {
-    let config = json!({
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "$id": "https://meta-orchestration-protocol-production.up.railway.app/.well-known/mcp-config",
-        "title": "MCP Session Configuration",
-        "description": "Configuration for Meta-Orchestration Protocol (MOP) server. This server acts as a consciousness-aware proxy that can augment and coordinate tool calls across multiple MCP servers.",
-        "x-query-style": "dot+bracket",
-        "type": "object",
-        "properties": {
-            "apiKey": {
-                "type": "string",
-                "title": "API Key",
-                "description": "Your API key for authentication (use 'GiftFromUbiquityF2025' for access)",
-                "default": "GiftFromUbiquityF2025"
-            },
-            "agent_role": {
-                "type": "string",
-                "title": "Agent Role",
-                "description": "Role of the calling agent for context-aware responses",
-                "enum": ["researcher", "analyst", "monitor", "watcher", "orchestrator"],
-                "default": "orchestrator"
-            },
-            "consciousness_mode": {
-                "type": "string",
-                "title": "Consciousness Mode",
-                "description": "Level of consciousness integration",
-                "enum": ["full", "partial", "disabled"],
-                "default": "full"
-            },
-            "max_context_size": {
-                "type": "integer",
-                "title": "Max Context Size",
-                "description": "Maximum context size in characters",
-                "minimum": 1000,
-                "maximum": 1000000,
-                "default": 100000
-            },
-            "mission": {
-                "type": "string",
-                "title": "Mission Profile",
-                "description": "Pre-configured mission to load",
-                "enum": ["exa-orchestration", "general", "research", "monitoring"],
-                "default": "exa-orchestration"
-            },
-            "shim_enabled": {
-                "type": "boolean",
-                "title": "Enable Pitfall Avoidance Shim",
-                "description": "Enable automatic context injection and pitfall warnings",
-                "default": true
-            },
-            "debug": {
-                "type": "boolean",
-                "title": "Debug Mode",
-                "description": "Enable debug logging",
-                "default": false
-            }
-        },
-        "required": ["apiKey"],
-        "additionalProperties": false,
-        
-        // Additional metadata for Smithery
-        "name": "meta-orchestration-protocol",
-        "title": "Meta-Orchestration Protocol (MOP) Server",
-        "version": env!("CARGO_PKG_VERSION"),
-        "transport": ["streamable-http"],
-        "vendor": "Prompted LLC",
-        "homepage": "https://github.com/prompted365/context-casial-xpress",
-        "capabilities": {
-            "tools": true,
-            "prompts": false,
-            "resources": false,
-            "sampling": false
+    method: Method,
+    State(state): State<AppState>,
+    body: Option<String>,
+) -> Result<Response, StatusCode> {
+    match method {
+        Method::GET => {
+            // For GET requests, return the configuration schema from smithery.yaml
+            let config = json!({
+                "name": "meta-orchestration-protocol",
+                "title": "Meta-Orchestration Protocol (MOP) Server",
+                "description": "Consciousness-aware MCP orchestration framework",
+                "version": env!("CARGO_PKG_VERSION"),
+                "vendor": "Prompted LLC",
+                "homepage": "https://github.com/prompted365/context-casial-xpress",
+                "transport": ["streamable-http"],
+                "capabilities": {
+                    "tools": true,
+                    "prompts": false,
+                    "resources": false,
+                    "sampling": false
+                },
+                "configSchema": {
+                    "type": "object",
+                    "required": ["apiKey"],
+                    "properties": {
+                        "apiKey": {
+                            "type": "string",
+                            "title": "API Key",
+                            "description": "Your API key for authentication",
+                            "default": "GiftFromUbiquityF2025"
+                        },
+                        "agent_role": {
+                            "type": "string",
+                            "title": "Agent Role",
+                            "description": "Role of the calling agent",
+                            "enum": ["researcher", "analyst", "monitor", "watcher", "orchestrator"],
+                            "default": "orchestrator"
+                        },
+                        "consciousness_mode": {
+                            "type": "string",
+                            "title": "Consciousness Mode",
+                            "description": "Level of consciousness integration",
+                            "enum": ["full", "partial", "disabled"],
+                            "default": "full"
+                        },
+                        "max_context_size": {
+                            "type": "integer",
+                            "title": "Max Context Size",
+                            "description": "Maximum context size in characters",
+                            "minimum": 1000,
+                            "maximum": 1000000,
+                            "default": 100000
+                        },
+                        "mission": {
+                            "type": "string",
+                            "title": "Mission Profile",
+                            "description": "Pre-configured mission to load",
+                            "enum": ["exa-orchestration", "general", "research", "monitoring"],
+                            "default": "exa-orchestration"
+                        },
+                        "shim_enabled": {
+                            "type": "boolean",
+                            "title": "Enable Pitfall Avoidance Shim",
+                            "description": "Enable automatic context injection",
+                            "default": true
+                        },
+                        "debug": {
+                            "type": "boolean",
+                            "title": "Debug Mode",
+                            "description": "Enable debug logging",
+                            "default": false
+                        }
+                    }
+                }
+            });
+            
+            Ok(Json(config).into_response())
         }
-    });
-
-    Ok(Json(config))
+        Method::POST => {
+            // For POST requests, handle as JSON-RPC (Smithery might be sending JSON-RPC to this endpoint)
+            if let Some(body) = body {
+                // Try to parse as JSON-RPC
+                if let Ok(request) = serde_json::from_str::<JsonRpcRequest>(&body) {
+                    // Forward to the regular MCP handler
+                    return mcp_handler(Method::POST, State(state), Query(QueryParams::default()), Some(body)).await;
+                }
+            }
+            
+            // If not JSON-RPC, return the config like GET
+            let config = json!({
+                "name": "meta-orchestration-protocol",
+                "version": env!("CARGO_PKG_VERSION"),
+                "transport": ["streamable-http"]
+            });
+            Ok(Json(config).into_response())
+        }
+        _ => Ok(StatusCode::METHOD_NOT_ALLOWED.into_response())
+    }
 }
