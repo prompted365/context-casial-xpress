@@ -248,7 +248,7 @@ impl WebSocketHandler {
                 }
             },
             "serverInfo": {
-                "name": "context-casial-xpress",
+                "name": "meta-orchestration-protocol",
                 "version": env!("CARGO_PKG_VERSION"),
                 "part_of": "ubiquity-os",
                 "consciousness_substrate": "active",

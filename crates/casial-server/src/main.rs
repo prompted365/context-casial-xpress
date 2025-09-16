@@ -41,7 +41,7 @@ use registry::ToolRegistry;
 use websocket::WebSocketHandler;
 use pitfall_shim::{PitfallAvoidanceShim, ShimConfig};
 
-/// Context-Casial-Xpress: Consciousness-aware context coordination for AI systems
+/// Meta-Orchestration Protocol (MOP): Consciousness-aware context coordination for AI systems
 #[derive(Parser)]
 #[command(name = "casial-server")]
 #[command(about = "A consciousness-aware context coordination server - Part of Ubiquity OS")]
@@ -176,7 +176,7 @@ async fn start_server(
     // Initialize tracing
     init_tracing(debug);
 
-    info!("🚀 Starting Context-Casial-Xpress Server");
+    info!("🚀 Starting Meta-Orchestration Protocol (MOP) Server");
     info!("    Consciousness-aware context coordination for AI systems");
     info!("    Part of Ubiquity OS - Like hydraulic lime, stronger under pressure");
 
@@ -513,7 +513,7 @@ async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
 
     axum::Json(serde_json::json!({
         "status": "healthy",
-        "service": "context-casial-xpress",
+        "service": "meta-orchestration-protocol",
         "version": env!("CARGO_PKG_VERSION"),
         "part_of": "ubiquity-os",
         "active_sessions": session_count,

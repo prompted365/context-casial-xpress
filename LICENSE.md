@@ -1,4 +1,4 @@
-# Fair Use License – Context-Casial-Xpress
+# Fair Use License – Meta-Orchestration Protocol (MOP)
 
 Copyright © 2025 Prompted LLC.  
 All rights reserved.  
@@ -10,7 +10,7 @@ Part of the Ubiquity OS ecosystem.
 
 This software is provided under a **Fair Use license**. The intent is to allow
 individuals, researchers, and organizations to **explore, assess, and evaluate**
-the Context-Casial-Xpress system without immediate commercial commitment, while
+the Meta-Orchestration Protocol (MOP) system without immediate commercial commitment, while
 reserving commercial rights for Prompted LLC.
 
 ---
@@ -39,7 +39,7 @@ Please contact us to discuss licensing.
 
 This Fair Use license is an interim framework. Licensing fitness assessment
 mechanisms are **prototyped but under development**. Final licensing terms for
-Context-Casial-Xpress will be **board-governed** by the Ubiquity Board.
+Meta-Orchestration Protocol (MOP) will be **board-governed** by the Ubiquity Board.
 
 - The Board will oversee commercial license approvals, partner designations,
   and usage audits.  

@@ -1,6 +1,6 @@
 # Smithery Deployment Guide
 
-Context-Casial-Xpress is fully compatible with Smithery's MCP aggregator platform. This guide covers deployment configuration and session management.
+Meta-Orchestration Protocol (MOP) is fully compatible with Smithery's MCP aggregator platform. This guide covers deployment configuration and session management.
 
 ## Project Configuration
 
@@ -89,7 +89,7 @@ configSchema:
 
 ## Pre-configured Missions
 
-Context-Casial-Xpress includes several pre-configured missions optimized for different use cases:
+Meta-Orchestration Protocol (MOP) includes several pre-configured missions optimized for different use cases:
 
 ### exa-orchestration (Default)
 
@@ -232,4 +232,4 @@ Or via session parameter:
 
 ### Monitoring Integration
 
-Context-Casial-Xpress exposes Prometheus metrics at `/metrics` for monitoring.
+Meta-Orchestration Protocol (MOP) exposes Prometheus metrics at `/metrics` for monitoring.

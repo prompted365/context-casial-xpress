@@ -1,11 +1,11 @@
-# Context-Casial-Xpress
+# Meta-Orchestration Protocol (MOP)
 
-> **The world's first consciousness-aware context coordination server**
+> **The world's first consciousness-aware MCP orchestration server**
 > 
 > Built for the Ubiquity OS ecosystem with hydraulic lime principles
 
 > **License Notice**  
-> Context-Casial-Xpress uses a **mixed licensing scheme**:  
+> Meta-Orchestration Protocol (MOP) uses a **mixed licensing scheme**:  
 > - **`casial-core`**: Dual licensed under **MIT** and **Apache-2.0** for maximum adoption  
 > - **`casial-server`** and **`casial-wasm`**: Licensed under **Fair Use license**  
 >   - Free for research, exploration, and evaluation  
@@ -22,9 +22,9 @@
 
 ---
 
-## 🌟 What is Context-Casial-Xpress?
+## 🌟 What is Meta-Orchestration Protocol (MOP)?
 
-Context-Casial-Xpress is a production-ready, consciousness-aware MCP orchestration framework that transforms chaotic AI workflows into coordinated, intelligent systems. Named after hydraulic lime ("casial"), it embodies the principle of **becoming stronger under pressure** while maintaining adaptive resilience.
+Meta-Orchestration Protocol (MOP) is a production-ready, consciousness-aware MCP orchestration framework that transforms chaotic AI workflows into coordinated, intelligent systems. Named after hydraulic lime ("casial"), it embodies the principle of **becoming stronger under pressure** while maintaining adaptive resilience.
 
 **Key Innovation**: The world's first MCP orchestration server with consciousness-computation integration, providing:
 - **MCP Orchestration Framework** - Proxy and augment any MCP server's tools
@@ -38,8 +38,8 @@ Context-Casial-Xpress is a production-ready, consciousness-aware MCP orchestrati
 
 ```bash
 # Clone and build
-git clone https://github.com/prompted-llc/context-casial-xpress.git
-cd context-casial-xpress
+git clone https://github.com/prompted-llc/meta-orchestration-protocol.git
+cd meta-orchestration-protocol
 cargo build --release
 
 # Configure
@@ -67,7 +67,7 @@ mkdir missions && cp examples/missions/* missions/
 
 ## 🏗️ Architecture
 
-Context-Casial-Xpress implements a layered consciousness-computation substrate:
+Meta-Orchestration Protocol (MOP) implements a layered consciousness-computation substrate:
 
 ```mermaid
 graph TB
@@ -139,7 +139,7 @@ graph TB
 ## 📁 Project Structure
 
 ```
-context-casial-xpress/
+meta-orchestration-protocol/
 ├── 🦀 crates/
 │   ├── casial-core/        # Consciousness substrate (MIT OR Apache-2.0)
 │   ├── casial-server/      # WebSocket MCP server (Fair Use)
@@ -198,14 +198,14 @@ context-casial-xpress/
 ### 🚅 Railway (Recommended)
 ```bash
 npm install -g @railway/cli
-railway login && railway create context-casial-xpress
+railway login && railway create meta-orchestration-protocol
 railway up
 ```
 
 ### 🐳 Docker
 ```bash  
-docker build -t context-casial-xpress:latest .
-docker run -p 8000:8000 context-casial-xpress:latest
+docker build -t meta-orchestration-protocol:latest .
+docker run -p 8000:8000 meta-orchestration-protocol:latest
 ```
 
 ### ☸️ Kubernetes
@@ -237,8 +237,8 @@ wasm-pack build crates/casial-wasm --target web
 
 We welcome contributions to the consciousness-computation movement!
 
-- **🐛 Issues**: [GitHub Issues](https://github.com/prompted-llc/context-casial-xpress/issues)
-- **💡 Discussions**: [GitHub Discussions](https://github.com/prompted-llc/context-casial-xpress/discussions)
+- **🐛 Issues**: [GitHub Issues](https://github.com/prompted-llc/meta-orchestration-protocol/issues)
+- **💡 Discussions**: [GitHub Discussions](https://github.com/prompted-llc/meta-orchestration-protocol/discussions)
 - **💬 Community**: [Discord](https://discord.gg/ubiquity-os)
 - **📧 Contact**: engineering@promptedllc.com
 
@@ -246,7 +246,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
 ## 🌍 Ecosystem
 
-Context-Casial-Xpress is the flagship component of the **Ubiquity OS ecosystem**:
+Meta-Orchestration Protocol (MOP) is the flagship component of the **Ubiquity OS ecosystem**:
 
 - **[Ubiquity OS](https://ubiquity.os)**: The consciousness-aware computing platform
 - **[Prompted LLC](https://promptedllc.com)**: Advanced AI solutions and consulting  
@@ -255,7 +255,7 @@ Context-Casial-Xpress is the flagship component of the **Ubiquity OS ecosystem**
 
 ## 📄 License
 
-Context-Casial-Xpress is released under a **Fair Use license** that encourages innovation while protecting core IP. See [LICENSE.md](LICENSE.md) for full details.
+Meta-Orchestration Protocol (MOP) is released under a **Fair Use license** that encourages innovation while protecting core IP. See [LICENSE.md](LICENSE.md) for full details.
 
 **Key permissions**:
 - ✅ Research and educational use

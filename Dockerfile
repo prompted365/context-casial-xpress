@@ -1,4 +1,4 @@
-# Context-Casial-Xpress Production Dockerfile
+# Meta-Orchestration Protocol (MOP) Production Dockerfile
 # Consciousness-aware context coordination server for Ubiquity OS
 FROM rust:1.82-slim AS builder
 

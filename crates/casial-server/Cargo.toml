@@ -75,6 +75,9 @@ sha2 = "0.10"
 # System information
 hostname = "0.3"
 
+# Base64 encoding/decoding
+base64 = "0.22"
+
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = "3.10"

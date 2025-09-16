@@ -10,12 +10,15 @@ use axum::{
     response::{sse::Event, IntoResponse, Response, Sse},
     Json,
 };
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::convert::Infallible;
+use std::collections::HashMap;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, error, info, warn};
+use http::HeaderValue;
 
 use crate::{mcp::*, AppState};
 
@@ -32,14 +35,46 @@ pub struct SessionConfig {
     pub shim_enabled: Option<bool>,
 }
 
+/// Query parameters that may include base64 encoded config
+#[derive(Debug, Deserialize)]
+pub struct QueryParams {
+    #[serde(flatten)]
+    pub direct_params: SessionConfig,
+    pub config: Option<String>, // Base64-encoded JSON config
+}
+
 
 /// MCP HTTP handler - supports both POST for JSON-RPC and GET for SSE
 pub async fn mcp_handler(
     method: Method,
     State(state): State<AppState>,
-    Query(config): Query<SessionConfig>,
+    Query(params): Query<QueryParams>,
     body: Option<String>,
 ) -> Result<Response, StatusCode> {
+    // Extract config from base64 if provided, otherwise use direct params
+    let config = if let Some(encoded_config) = params.config {
+        // Decode base64 config like Python implementation
+        match BASE64.decode(&encoded_config) {
+            Ok(decoded) => {
+                match serde_json::from_slice::<SessionConfig>(&decoded) {
+                    Ok(parsed_config) => {
+                        debug!("Decoded config from base64: {:?}", parsed_config);
+                        parsed_config
+                    }
+                    Err(e) => {
+                        warn!("Failed to parse base64 config JSON: {}", e);
+                        params.direct_params
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("Failed to decode base64 config: {}", e);
+                params.direct_params
+            }
+        }
+    } else {
+        params.direct_params
+    };
     // Validate API key
     const VALID_API_KEY: &str = "GiftFromUbiquityF2025";
     
@@ -85,7 +120,15 @@ pub async fn mcp_handler(
         Method::GET => handle_get_sse(state, config).await,
         Method::HEAD => {
             // Return OK for HEAD requests (used by Smithery for health checks)
-            Ok(StatusCode::OK.into_response())
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, HEAD, OPTIONS")
+                .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization, MCP-Protocol-Version")
+                .header(header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true")
+                .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "mcp-session-id, mcp-protocol-version")
+                .body(axum::body::Body::empty())
+                .unwrap())
         }
         Method::OPTIONS => {
             // Handle CORS preflight with proper headers for Smithery
@@ -138,7 +181,19 @@ async fn handle_post(
         }
     };
 
-    Ok(Json(response).into_response())
+    // Create the response with CORS headers
+    let mut response = Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, HEAD, OPTIONS")
+        .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization, MCP-Protocol-Version")
+        .header(header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true")
+        .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "mcp-session-id, mcp-protocol-version")
+        .body(Json(response).into_response().into_body())
+        .unwrap();
+
+    Ok(response)
 }
 
 /// Handle GET requests for SSE stream
@@ -164,8 +219,16 @@ async fn handle_get_sse(
                 .text(":\n"),  // Standard SSE keep-alive format
         );
     
-    Ok(response
-        .into_response())
+    // Add CORS headers to SSE response
+    let mut sse_response = response.into_response();
+    let headers = sse_response.headers_mut();
+    headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
+    headers.insert(header::ACCESS_CONTROL_ALLOW_METHODS, HeaderValue::from_static("GET, POST, HEAD, OPTIONS"));
+    headers.insert(header::ACCESS_CONTROL_ALLOW_HEADERS, HeaderValue::from_static("Content-Type, Authorization, MCP-Protocol-Version"));
+    headers.insert(header::ACCESS_CONTROL_ALLOW_CREDENTIALS, HeaderValue::from_static("true"));
+    headers.insert(header::ACCESS_CONTROL_EXPOSE_HEADERS, HeaderValue::from_static("mcp-session-id, mcp-protocol-version"));
+    
+    Ok(sse_response)
 }
 
 /// Handle initialize request
@@ -228,11 +291,11 @@ async fn handle_initialize(
         "protocolVersion": negotiated_version,
         "capabilities": server_capabilities,
         "serverInfo": {
-            "name": "casial-server",
-            "title": "Context-Casial-Xpress MCP Server",
+            "name": "mop-server",
+            "title": "Meta-Orchestration Protocol (MOP) Server",
             "version": env!("CARGO_PKG_VERSION")
         },
-        "instructions": "Context-Casial-Xpress: An MCP orchestration framework that acts as a consciousness-aware proxy layer. Use 'orchestrate_mcp_proxy' to augment any MCP server's tools with context injection, swarm instructions, and paradox handling. Use 'discover_mcp_tools' to analyze and map tools from other servers. Part of Ubiquity OS - where paradoxes make the system stronger."
+        "instructions": "Meta-Orchestration Protocol (MOP): An MCP orchestration framework that acts as a consciousness-aware proxy layer. Use 'orchestrate_mcp_proxy' to augment any MCP server's tools with context injection, swarm instructions, and paradox handling. Use 'discover_mcp_tools' to analyze and map tools from other servers. Part of Ubiquity OS - where paradoxes make the system stronger."
     });
 
     create_success_response(request.id, result)
@@ -404,9 +467,9 @@ pub async fn well_known_config_handler(
 ) -> Result<Json<Value>, StatusCode> {
     let config = json!({
         "$schema": "http://json-schema.org/draft-07/schema#",
-        "$id": "https://context-casial-xpress-production.up.railway.app/.well-known/mcp-config",
+        "$id": "https://meta-orchestration-protocol-production.up.railway.app/.well-known/mcp-config",
         "title": "MCP Session Configuration",
-        "description": "Configuration for Context-Casial-Xpress MCP orchestration server. This server acts as a consciousness-aware proxy that can augment and coordinate tool calls across multiple MCP servers.",
+        "description": "Configuration for Meta-Orchestration Protocol (MOP) server. This server acts as a consciousness-aware proxy that can augment and coordinate tool calls across multiple MCP servers.",
         "x-query-style": "dot+bracket",
         "type": "object",
         "properties": {
@@ -462,8 +525,8 @@ pub async fn well_known_config_handler(
         "additionalProperties": false,
         
         // Additional metadata for Smithery
-        "name": "context-casial-xpress",
-        "title": "Context-Casial-Xpress MCP Server",
+        "name": "meta-orchestration-protocol",
+        "title": "Meta-Orchestration Protocol (MOP) Server",
         "version": env!("CARGO_PKG_VERSION"),
         "transport": ["streamable-http"]
     });

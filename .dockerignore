@@ -8,6 +8,8 @@
 !crates/**
 !examples/
 !examples/**
+!missions/
+!missions/**
 !railway-start.sh
 !README.md
 

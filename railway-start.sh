@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Railway startup script for Context-Casial-Xpress
+# Railway startup script for Meta-Orchestration Protocol (MOP)
 # Handles Railway's dynamic port assignment and environment setup
 # Supports Smithery session configuration
 
@@ -10,10 +10,10 @@ set -e
 DEFAULT_PORT=8080
 SERVER_PORT=${PORT:-$DEFAULT_PORT}
 
-echo "🚀 Starting Context-Casial-Xpress on Railway"
+echo "🚀 Starting Meta-Orchestration Protocol (MOP) on Railway"
 echo "   Port: $SERVER_PORT"
 echo "   Environment: ${RAILWAY_ENVIRONMENT:-local}"
-echo "   Project: ${RAILWAY_PROJECT_NAME:-context-casial-xpress}"
+echo "   Project: ${RAILWAY_PROJECT_NAME:-meta-orchestration-protocol}"
 echo "   Smithery Compatible: ✅"
 
 # Set Rust logging
