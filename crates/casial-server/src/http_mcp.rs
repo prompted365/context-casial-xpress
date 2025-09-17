@@ -279,6 +279,7 @@ async fn handle_post(
         "resources/unsubscribe" => handle_resources_unsubscribe(&state, request).await,
         "sampling/createMessage" => handle_sampling_create(&state, request).await,
         "completion/complete" => handle_completion(&state, request).await,
+        "ping" => handle_ping(request).await,
         _ => {
             warn!("Unknown MCP method: {}", request.method);
             create_error_response(
@@ -1196,7 +1197,8 @@ async fn handle_resources_read(
         "mop://orchestration/context" => {
             let metrics = state.metrics_collector.read().await.get_current_metrics();
             vec![json!({
-                "type": "text",
+                "uri": params.uri.clone(),
+                "mimeType": "text/plain",
                 "text": serde_json::to_string_pretty(&json!({
                     "timestamp": chrono::Utc::now().to_rfc3339(),
                     "active_sessions": state.active_sessions.len(),
@@ -1215,7 +1217,8 @@ async fn handle_resources_read(
         "mop://consciousness/state" => {
             let metrics = state.metrics_collector.read().await.get_current_metrics();
             vec![json!({
-                "type": "text",
+                "uri": params.uri.clone(),
+                "mimeType": "text/plain",
                 "text": serde_json::to_string_pretty(&json!({
                     "consciousness_metrics": {
                         "paradox_resolution_rate": metrics.paradoxes_resolved,
@@ -1245,7 +1248,8 @@ async fn handle_resources_read(
             };
             
             vec![json!({
-                "type": "text",
+                "uri": params.uri.clone(),
+                "mimeType": "text/plain",
                 "text": serde_json::to_string_pretty(&federation_info).unwrap()
             })]
         }
@@ -1318,4 +1322,11 @@ async fn handle_sampling_create(
             "system_prompt": params.system_prompt
         }))
     )
+}
+
+async fn handle_ping(
+    request: JsonRpcRequest,
+) -> JsonRpcResponse {
+    // Simple ping response - just acknowledge
+    create_success_response(request.id, json!({}))
 }

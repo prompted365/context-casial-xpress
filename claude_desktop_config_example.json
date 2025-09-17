@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "meta-orchestration-protocol": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@smithery/cli",
+        "run",
+        "https://context-casial-xpress-production.up.railway.app/mcp"
+      ],
+      "env": {
+        "SMITHERY_CONFIG": "{\"apiKey\":\"GiftFromUbiquityF2025\"}"
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "meta-orchestration-protocol": {
+      "url": "https://context-casial-xpress-production.up.railway.app/mcp",
+      "transport": "streamable-http",
+      "config": {
+        "apiKey": "GiftFromUbiquityF2025",
+        "agent_role": "orchestrator",
+        "consciousness_mode": "full",
+        "mission": "exa-orchestration",
+        "shim_enabled": true
+      }
+    }
+  }
+}
