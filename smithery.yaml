@@ -70,6 +70,16 @@ metadata:
   transport: "streamable-http"
   capabilities:
     tools: true
-    prompts: false
-    resources: false
-    sampling: false
+    prompts: true
+    resources: true
+    sampling: true
+  documentation: "https://github.com/prompted365/context-casial-xpress/blob/main/ORCHESTRATED_SWARMS_WHITEPAPER.md"
+  tags:
+    - orchestration
+    - swarm
+    - mcp
+    - proxy
+    - context-aware
+    - multi-agent
+    - consciousness
+    - paradox
