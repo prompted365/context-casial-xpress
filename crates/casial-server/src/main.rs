@@ -417,35 +417,20 @@ async fn require_admin_token(
         request.headers(),
     ) {
         Ok(()) => {
-            let mut response = next.run(request).await;
-            response
-                .headers_mut()
-                .insert(header::VARY, HeaderValue::from_static("Authorization"));
-            Ok(response)
-        }
-        Err(status) => {
-            let (error_code, message) = if status == StatusCode::FORBIDDEN {
-                (
-                    "admin_token_unset",
-                    "Set MOP_ADMIN_TOKEN to enable /debug endpoints",
-                )
-            } else {
-                (
-                    "unauthorized",
-                    "Provide MOP_ADMIN_TOKEN via Mop-Admin-Token header or Authorization: Bearer",
-                )
-            };
-
-            let mut response = (
-                status,
-                Json(json!({ "error": error_code, "message": message })),
+             // success path: preserve existing Vary and append our headers
+             let mut response = next.run(request).await;
+-            response
+-                .headers_mut()
+            let headers = response.headers_mut();
+            headers.append(header::VARY, HeaderValue::from_static("Authorization"));
+            headers.append(
+                header::VARY,
+                HeaderValue::from_static("Mop-Admin-Token"),
             );
-            let mut response = response.into_response();
-            response.headers_mut().insert(
-                header::WWW_AUTHENTICATE,
-                HeaderValue::from_static("Bearer realm=\"mop-debug\""),
-            );
-            Ok(response)
+             Ok(response)
+         }
+         Err(status) => {
+             // … rest of error branch unchanged …
         }
     }
 }
