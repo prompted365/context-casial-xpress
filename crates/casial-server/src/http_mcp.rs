@@ -13,6 +13,7 @@ use axum::{
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use dashmap::DashMap;
 use http::{HeaderMap, HeaderValue};
+use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{convert::Infallible, sync::Arc};
@@ -121,9 +122,7 @@ impl CorsPolicy {
     }
 }
 
-lazy_static::lazy_static! {
-    static ref CORS_POLICY: CorsPolicy = CorsPolicy::from_env();
-}
+static CORS_POLICY: Lazy<CorsPolicy> = Lazy::new(CorsPolicy::from_env);
 
 /// Access the configured global CORS policy
 pub fn cors_policy() -> &'static CorsPolicy {
@@ -211,6 +210,59 @@ pub fn apply_cors_headers(headers: &mut HeaderMap, request_headers: &HeaderMap) 
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn reset_env() {
+        std::env::remove_var("ALLOWED_ORIGINS");
+    }
+
+    #[test]
+    fn cors_policy_defaults_to_any_when_env_missing() {
+        reset_env();
+        let policy = CorsPolicy::from_env();
+        let origin = policy.resolve_origin(&HeaderMap::new());
+
+        assert_eq!(origin, HeaderValue::from_static("*"));
+        assert!(!policy.allow_credentials());
+    }
+
+    #[test]
+    fn cors_policy_matches_listed_origin() {
+        std::env::set_var("ALLOWED_ORIGINS", "https://example.com,https://other.test");
+        let policy = CorsPolicy::from_env();
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::ORIGIN,
+            HeaderValue::from_static("https://other.test"),
+        );
+
+        let origin = policy.resolve_origin(&headers);
+        assert_eq!(origin, HeaderValue::from_static("https://other.test"));
+        assert!(policy.allow_credentials());
+        reset_env();
+    }
+
+    #[test]
+    fn cors_context_suppresses_credentials_for_wildcard() {
+        std::env::set_var("ALLOWED_ORIGINS", "*");
+        let policy = CorsPolicy::from_env();
+        let origin = policy.resolve_origin(&HeaderMap::new());
+
+        let mut headers = HeaderMap::new();
+        apply_cors_headers(&mut headers, &HeaderMap::new());
+
+        assert_eq!(origin, HeaderValue::from_static("*"));
+        assert!(!policy.allow_credentials());
+        assert!(headers
+            .get(header::ACCESS_CONTROL_ALLOW_CREDENTIALS)
+            .is_none());
+        reset_env();
+    }
+}
+
 fn finalize_with_cors(mut response: Response, request_headers: &HeaderMap) -> Response {
     apply_cors_headers(response.headers_mut(), request_headers);
     response
@@ -227,22 +279,20 @@ pub struct SessionData {
     pub last_accessed: std::time::Instant,
 }
 
-lazy_static::lazy_static! {
-    /// Global session storage
-    static ref SESSIONS: Arc<DashMap<String, SessionData>> = Arc::new(DashMap::new());
-}
+/// Global session storage shared across requests
+static SESSIONS: Lazy<Arc<DashMap<String, SessionData>>> = Lazy::new(|| Arc::new(DashMap::new()));
 
 const DEMO_API_KEY: &str = "DEMO_KEY_PUBLIC";
 
-lazy_static::lazy_static! {
-    static ref EXPECTED_API_KEY: String = {
-        let value = std::env::var("MOP_API_KEY").unwrap_or_else(|_| DEMO_API_KEY.to_string());
-        if value == DEMO_API_KEY {
-            tracing::info!("Using public demo API key (DEMO KEY – public). Set MOP_API_KEY to override.");
-        }
-        value
-    };
-}
+static EXPECTED_API_KEY: Lazy<String> = Lazy::new(|| {
+    let value = std::env::var("MOP_API_KEY").unwrap_or_else(|_| DEMO_API_KEY.to_string());
+    if value == DEMO_API_KEY {
+        tracing::info!(
+            "Using public demo API key (DEMO KEY – public). Set MOP_API_KEY to override."
+        );
+    }
+    value
+});
 
 fn expected_api_key() -> &'static str {
     EXPECTED_API_KEY.as_str()

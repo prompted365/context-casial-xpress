@@ -5,9 +5,10 @@
 
 use anyhow::Result;
 use axum::{
-    extract::{ws::WebSocketUpgrade, Query, Request as AxumRequest, State},
-    http::{self, header, HeaderValue, Method, StatusCode},
-    middleware::{self, Next},
+    body::Body,
+    extract::{ws::WebSocketUpgrade, Query, State},
+    http::{self, header, HeaderMap, HeaderValue, Method, Request, StatusCode},
+    middleware::{from_fn_with_state, Next},
     response::{IntoResponse, Response},
     routing::get,
     Json, Router,
@@ -406,69 +407,73 @@ fn create_cors_layer() -> tower_http::cors::CorsLayer {
     http_mcp::build_cors_layer()
 }
 
-async fn require_admin_token(req: AxumRequest, next: Next) -> Result<Response, StatusCode> {
-    let expected = std::env::var("MOP_ADMIN_TOKEN").unwrap_or_default();
+async fn require_admin_token(
+    State(_state): State<AppState>,
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    match validate_admin_token(
+        std::env::var("MOP_ADMIN_TOKEN").ok().as_deref(),
+        request.headers(),
+    ) {
+        Ok(()) => {
+            let mut response = next.run(request).await;
+            response
+                .headers_mut()
+                .insert(header::VARY, HeaderValue::from_static("Authorization"));
+            Ok(response)
+        }
+        Err(status) => {
+            let (error_code, message) = if status == StatusCode::FORBIDDEN {
+                (
+                    "admin_token_unset",
+                    "Set MOP_ADMIN_TOKEN to enable /debug endpoints",
+                )
+            } else {
+                (
+                    "unauthorized",
+                    "Provide MOP_ADMIN_TOKEN via Mop-Admin-Token header or Authorization: Bearer",
+                )
+            };
 
-    if expected.is_empty() {
-        tracing::warn!("MOP_ADMIN_TOKEN not set; denying access to /debug routes");
-        let mut response = (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(json!({
-                "error": "admin_token_unset",
-                "message": "Set MOP_ADMIN_TOKEN to enable /debug endpoints"
-            })),
-        )
-            .into_response();
-        response.headers_mut().insert(
-            header::WWW_AUTHENTICATE,
-            HeaderValue::from_static("Bearer realm=\"mop-debug\""),
-        );
-        return Ok(response);
-    }
-
-    let mut authorized = req
-        .headers()
-        .get("Mop-Admin-Token")
-        .and_then(|value| value.to_str().ok())
-        .map(|token| token == expected)
-        .unwrap_or(false);
-
-    if !authorized {
-        if let Some(auth_header) = req
-            .headers()
-            .get(header::AUTHORIZATION)
-            .and_then(|value| value.to_str().ok())
-        {
-            if let Some(token) = auth_header.strip_prefix("Bearer ") {
-                if token == expected {
-                    authorized = true;
-                }
-            }
+            let mut response = (
+                status,
+                Json(json!({ "error": error_code, "message": message })),
+            );
+            let mut response = response.into_response();
+            response.headers_mut().insert(
+                header::WWW_AUTHENTICATE,
+                HeaderValue::from_static("Bearer realm=\"mop-debug\""),
+            );
+            Ok(response)
         }
     }
+}
 
-    if !authorized {
-        tracing::warn!("Unauthorized attempt to access /debug endpoints");
-        let mut response = (
-            StatusCode::UNAUTHORIZED,
-            Json(json!({
-                "error": "unauthorized",
-                "message": "Provide MOP_ADMIN_TOKEN via Mop-Admin-Token header or Authorization: Bearer"
-            })),
-        )
-            .into_response();
-        response.headers_mut().insert(
-            header::WWW_AUTHENTICATE,
-            HeaderValue::from_static("Bearer realm=\"mop-debug\""),
-        );
-        return Ok(response);
+fn validate_admin_token(expected: Option<&str>, headers: &HeaderMap) -> Result<(), StatusCode> {
+    let Some(expected) = expected.filter(|value| !value.is_empty()) else {
+        tracing::warn!("MOP_ADMIN_TOKEN not set; denying access to /debug routes");
+        return Err(StatusCode::FORBIDDEN);
+    };
+
+    let provided = headers
+        .get("Mop-Admin-Token")
+        .and_then(|value| value.to_str().ok())
+        .map(|token| token.to_string())
+        .or_else(|| {
+            headers
+                .get(header::AUTHORIZATION)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|auth| auth.strip_prefix("Bearer ").map(|token| token.to_string()))
+        });
+
+    match provided {
+        Some(token) if token == expected => Ok(()),
+        _ => {
+            tracing::warn!("Unauthorized attempt to access /debug endpoints");
+            Err(StatusCode::UNAUTHORIZED)
+        }
     }
-
-    let mut response = next.run(req).await;
-    response
-        .headers_mut()
-        .insert(header::VARY, HeaderValue::from_static("Authorization"));
-    Ok(response)
 }
 
 async fn build_router(state: AppState) -> Result<Router> {
@@ -479,7 +484,7 @@ async fn build_router(state: AppState) -> Result<Router> {
         .route("/perceptions", get(debug_perceptions))
         .route("/sprawl", get(debug_sprawl))
         .route("/shim", get(debug_shim).post(update_shim))
-        .route_layer(middleware::from_fn(require_admin_token))
+        .route_layer(from_fn_with_state(state.clone(), require_admin_token))
         .with_state(state.clone());
 
     let router = Router::new()
@@ -958,7 +963,12 @@ async fn show_status(endpoint: String) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::http::{HeaderValue, StatusCode};
     use std::env;
+
+    fn header_map() -> HeaderMap {
+        HeaderMap::new()
+    }
 
     #[test]
     fn test_cors_layer_empty() {
@@ -1006,5 +1016,40 @@ mod tests {
         );
         let _cors = create_cors_layer();
         // Should fall back to permissive layer due to invalid origin
+    }
+
+    #[test]
+    fn validate_admin_token_requires_configuration() {
+        let headers = header_map();
+        let result = validate_admin_token(None, &headers);
+        assert_eq!(result.unwrap_err(), StatusCode::FORBIDDEN);
+    }
+
+    #[test]
+    fn validate_admin_token_rejects_missing_header() {
+        let headers = header_map();
+        let result = validate_admin_token(Some("secret"), &headers);
+        assert_eq!(result.unwrap_err(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn validate_admin_token_accepts_primary_header() {
+        let mut headers = header_map();
+        headers.insert("Mop-Admin-Token", HeaderValue::from_static("secret"));
+
+        let result = validate_admin_token(Some("secret"), &headers);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validate_admin_token_accepts_bearer_authorization() {
+        let mut headers = header_map();
+        headers.insert(
+            header::AUTHORIZATION,
+            HeaderValue::from_static("Bearer secret"),
+        );
+
+        let result = validate_admin_token(Some("secret"), &headers);
+        assert!(result.is_ok());
     }
 }
