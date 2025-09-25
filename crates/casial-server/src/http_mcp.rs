@@ -41,6 +41,29 @@ enum OriginPolicy {
 }
 
 impl CorsPolicy {
+    /// Builds a CorsPolicy based on the `ALLOWED_ORIGINS` environment variable.
+    ///
+    /// If `ALLOWED_ORIGINS` is empty or not set, or equals `"*"`, the policy allows all origins
+    /// and disables credentials. Otherwise the variable is parsed as a comma-separated list of
+    /// origin header values; successfully parsed origins produce a `List` policy and enable
+    /// credentials. Malformed origin entries are logged and ignored; if parsing yields an empty
+    /// list, the function falls back to the wildcard policy without credentials.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::env;
+    ///
+    /// // wildcard behavior -> allow all origins, no credentials
+    /// env::set_var("ALLOWED_ORIGINS", "*");
+    /// let policy = crate::http_mcp::CorsPolicy::from_env();
+    /// assert_eq!(policy.allow_credentials, false);
+    ///
+    /// // explicit list -> credentials enabled when at least one origin parses
+    /// env::set_var("ALLOWED_ORIGINS", "https://example.com, https://foo.bar");
+    /// let policy = crate::http_mcp::CorsPolicy::from_env();
+    /// assert_eq!(policy.allow_credentials, true);
+    /// ```
     fn from_env() -> Self {
         let allowed_origins = std::env::var("ALLOWED_ORIGINS").unwrap_or_default();
         let allowed_origins = allowed_origins.trim();
@@ -92,6 +115,41 @@ impl CorsPolicy {
         }
     }
 
+    /// Determines which Origin value, if any, should be used for the
+    /// `Access-Control-Allow-Origin` response header based on the policy and the
+    /// incoming request headers.
+    ///
+    /// Returns `Some(HeaderValue)` when the policy allows a specific origin (or
+    /// wildcard `"*"`), or `None` when no origin should be exposed (credentials
+    /// must not be sent and no match was found).
+    ///
+    /// # Parameters
+    ///
+    /// - `request_headers`: the incoming request's header map used to read the
+    ///   `Origin` header for origin-matching when the policy is a list.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use http::{header, HeaderMap, HeaderValue};
+    /// // Construct an example request headers map with an Origin.
+    /// let mut headers = HeaderMap::new();
+    /// headers.insert(header::ORIGIN, HeaderValue::from_static("https://example.com"));
+    ///
+    /// // Example: policy allowing any origin.
+    /// let any_policy = crate::CorsPolicy { origin_policy: crate::OriginPolicy::Any };
+    /// assert_eq!(any_policy.resolve_origin(&headers), Some(HeaderValue::from_static("*")));
+    ///
+    /// // Example: policy allowing a specific origin.
+    /// let allowed = vec![HeaderValue::from_static("https://example.com")];
+    /// let list_policy = crate::CorsPolicy { origin_policy: crate::OriginPolicy::List(allowed) };
+    /// assert_eq!(list_policy.resolve_origin(&headers), Some(HeaderValue::from_static("https://example.com")));
+    ///
+    /// // Example: policy list that does not match the request origin.
+    /// let mut headers2 = HeaderMap::new();
+    /// headers2.insert(header::ORIGIN, HeaderValue::from_static("https://other.com"));
+    /// assert_eq!(list_policy.resolve_origin(&headers2), None);
+    /// ```
     fn resolve_origin(&self, request_headers: &HeaderMap) -> Option<HeaderValue> {
         match &self.origin_policy {
             OriginPolicy::Any => Some(HeaderValue::from_static("*")),
@@ -124,7 +182,18 @@ pub fn cors_policy() -> &'static CorsPolicy {
     &CORS_POLICY
 }
 
-/// Build a [`CorsLayer`] that mirrors the manual headers emitted elsewhere
+/// Construct a configured `CorsLayer` matching the manual CORS headers used by this module.
+///
+/// The returned layer is configured based on the global CORS policy: it sets allowed methods,
+/// allowed request headers, and exposed response headers. When the policy limits origins to a
+/// specific list, credentials are enabled on the layer if the policy permits.
+///
+/// # Examples
+///
+/// ```
+/// // simple smoke test: building the layer should not panic
+/// let _layer = crate::http_mcp::build_cors_layer();
+/// ```
 pub fn build_cors_layer() -> CorsLayer {
     let policy = cors_policy().clone();
     let allow_headers = vec![
@@ -172,7 +241,25 @@ pub fn build_cors_layer() -> CorsLayer {
     }
 }
 
-/// Apply manual CORS headers to a response
+/// Apply CORS headers to the given response headers based on the global CORS policy and the incoming request.
+///
+/// Consults the global CORS policy to resolve an allowed origin from `request_headers`. If an origin is resolved,
+/// sets `Access-Control-Allow-Origin` to that origin and sets or removes `Access-Control-Allow-Credentials` according
+/// to the policy. If no origin is resolved, removes any origin and credentials CORS headers. Always sets the allowed
+/// methods, allowed headers, exposed headers, and adds `Vary: Origin`.
+///
+/// `headers` is mutated in-place as the response's header map. `request_headers` is the incoming request header map
+/// used to determine the allowed origin.
+///
+/// # Examples
+///
+/// ```
+/// use http::header::HeaderMap;
+/// // `apply_cors_headers` mutates the response header map according to the request headers and global policy.
+/// let mut resp_headers = HeaderMap::new();
+/// let req_headers = HeaderMap::new();
+/// apply_cors_headers(&mut resp_headers, &req_headers);
+/// ```
 pub fn apply_cors_headers(headers: &mut HeaderMap, request_headers: &HeaderMap) {
     let policy = cors_policy();
     if let Some(origin) = policy.resolve_origin(request_headers) {
@@ -339,7 +426,28 @@ pub struct QueryParams {
     pub config: Option<String>, // Base64-encoded JSON config
 }
 
-/// MCP HTTP handler - supports both POST for JSON-RPC and GET for SSE
+/// Handle MCP over HTTP, serving JSON-RPC on POST and an SSE stream on GET.
+///
+/// This endpoint routes incoming MCP requests by HTTP method, enforces session/API-key
+/// authentication (accepting an `apiKey` in query/config or a Bearer token in the
+/// `Authorization` header), and delegates to method-specific handlers for POST, GET,
+/// DELETE, HEAD, and OPTIONS. When a session is present, requests may bypass API-key
+/// validation; OPTIONS requests return a No Content response suitable for CORS preflight,
+/// and HEAD returns an empty OK used for health checks. Unsupported methods yield
+/// Method Not Allowed.
+///
+/// # Examples
+///
+/// ```no_run
+/// use http::Method;
+/// use axum::extract::{State, Query};
+/// // Construct minimal inputs (placeholders shown); real usage occurs inside an Axum route.
+/// # async fn example() -> Result<(), http::StatusCode> {
+/// let method = Method::GET;
+/// // `state`, `headers`, `params`, and `body` would be provided by Axum in a real request.
+/// // mcp_handler(method, State(state), headers, Query(params), body).await?;
+/// # Ok(()) }
+/// ```
 pub async fn mcp_handler(
     method: Method,
     State(state): State<AppState>,
@@ -603,7 +711,42 @@ async fn handle_post(
     Ok(response)
 }
 
-/// Handle GET requests for SSE stream
+/// Serve an SSE stream for an established MCP session and update the session's last-accessed time.
+///
+/// Validates that `session_id` is present and corresponds to an active session; if valid, updates
+/// the session's `last_accessed` timestamp and returns an SSE response with no initial events and
+/// a 30-second keep-alive heartbeat. If `session_id` is missing or refers to a nonexistent session,
+/// responds with HTTP 400 and a short error body.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use std::sync::Arc;
+/// # use tokio::runtime::Runtime;
+/// # use axum::response::Response;
+/// # use http::StatusCode;
+/// # // `AppState` and `SessionConfig` are application-specific types; this example shows invocation only.
+/// # fn main() {
+/// #     let rt = Runtime::new().unwrap();
+/// #     rt.block_on(async {
+/// let state = /* AppState */ todo!();
+/// let config = /* SessionConfig */ todo!();
+/// let session_id = Some("existing-session-id".to_string());
+///
+/// let result: Result<Response, StatusCode> = handle_get_sse(state, config, session_id).await;
+/// match result {
+///     Ok(resp) => {
+///         // `resp` is an SSE response stream with keep-alive configured
+///         let _ = resp;
+///     }
+///     Err(code) => {
+///         // handle error status code
+///         let _ = code;
+///     }
+/// }
+/// #     });
+/// # }
+/// ```
 async fn handle_get_sse(
     _state: AppState,
     _config: SessionConfig,
@@ -673,7 +816,40 @@ async fn handle_delete_session(session_id: Option<String>) -> Result<Response, S
     }
 }
 
-/// Handle initialize request
+/// Negotiate MCP protocol, create and register a new session, and assemble the server's initialization response.
+///
+/// Parses and validates initialize parameters from the JSON-RPC request; negotiates the protocol version
+/// (currently fixed to "2024-11-05"), builds the server capabilities (including sampling hints when enabled),
+/// creates and stores a new session, and embeds the sessionId into the returned response. Returns a JSON-RPC
+/// error response if the request parameters are invalid.
+///
+/// # Examples
+///
+/// ```
+/// // Construct a minimal initialize request and session config, then call the handler.
+/// // In real usage, `state` is the server AppState and the call is awaited inside an async context.
+/// let request = JsonRpcRequest {
+///     jsonrpc: "2.0".into(),
+///     method: "initialize".into(),
+///     params: serde_json::json!({
+///         "protocolVersion": "2024-11-05",
+///         "capabilities": {}
+///     }),
+///     id: Some(serde_json::json!(1)),
+/// };
+/// let config = SessionConfig {
+///     api_key: None,
+///     debug: false,
+///     consciousness_mode: None,
+///     max_context_size: None,
+///     agent_role: None,
+///     mission: None,
+///     shim_enabled: false,
+/// };
+/// // let state = create_test_app_state();
+/// // let resp = tokio::runtime::Runtime::new().unwrap().block_on(handle_initialize(&state, request, &config));
+/// // assert!(resp.result.is_some());
+/// ```
 async fn handle_initialize(
     _state: &AppState,
     request: JsonRpcRequest,
@@ -800,7 +976,30 @@ async fn handle_initialized(_state: &AppState, request: JsonRpcRequest) -> JsonR
     create_success_response(request.id, json!({}))
 }
 
-/// Handle tools/list request
+/// Return the list of available MCP tools from the tool registry.
+///
+/// The response includes each tool's `name`, `description`, `inputSchema`, and `outputSchema`
+/// in the JSON-RPC result object under the `tools` field.
+///
+/// # Parameters
+///
+/// - `state`: application state providing access to the tool registry.
+/// - `request`: the incoming JSON-RPC request; its `id` is preserved in the response.
+///
+/// # Returns
+///
+/// A `JsonRpcResponse` whose result is an object `{ "tools": [ ... ] }` containing MCP tool descriptors.
+///
+/// # Examples
+///
+/// ```
+/// // Example (illustrative): call handler and inspect returned JSON-RPC result.
+/// // let state = AppState::test_with_tools(...);
+/// // let req = JsonRpcRequest::new_request("tools/list", None);
+/// // let resp = tokio_test::block_on(handle_tools_list(&state, req));
+/// // let result = resp.result.unwrap();
+/// // assert!(result.get("tools").and_then(|v| v.as_array()).is_some());
+/// ```
 async fn handle_tools_list(state: &AppState, request: JsonRpcRequest) -> JsonRpcResponse {
     info!("Listing MCP tools");
 
@@ -972,7 +1171,21 @@ async fn handle_completion(_state: &AppState, request: JsonRpcRequest) -> JsonRp
     create_success_response(request.id, result)
 }
 
-/// Well-known configuration endpoint handler
+/// Builds the server's well-known MCP configuration payload.
+///
+/// The returned JSON includes server metadata (name, title, version, vendor, homepage),
+/// supported transports, capabilities (conditionally including `sampling` when enabled),
+/// feature flags, and a `configSchema` describing client session options (apiKey, agent_role,
+/// consciousness_mode, max_context_size, mission, shim_enabled, debug).
+///
+/// # Examples
+///
+/// ```
+/// let cfg = build_mcp_config();
+/// assert_eq!(cfg["name"], "meta-orchestration-protocol");
+/// assert!(cfg.get("capabilities").is_some());
+/// // If sampling is enabled, the capabilities object will contain "sampling".
+/// ```
 fn build_mcp_config() -> serde_json::Value {
     let sampling_enabled = sampling_feature_enabled();
 
