@@ -12,7 +12,7 @@ echo "=================================================="
 
 # Base URL (adjust if testing on production)
 BASE_URL="${MCP_TEST_URL:-http://localhost:8080}"
-API_KEY="GiftFromUbiquityF2025"
+API_KEY="${MOP_API_KEY:-DEMO_KEY_PUBLIC}"
 
 # Test 1: Health Check
 echo -e "\n${YELLOW}Test 1: Health Check${NC}"
@@ -49,8 +49,9 @@ fi
 
 # Test 4: MCP Initialize (with auth)
 echo -e "\n${YELLOW}Test 4: MCP Initialize${NC}"
-init_response=$(curl -s -X POST "${BASE_URL}/mcp?apiKey=${API_KEY}" \
+init_response=$(curl -s -X POST "${BASE_URL}/mcp" \
     -H "Content-Type: application/json" \
+    -H "Authorization: Bearer ${API_KEY}" \
     -d '{
         "jsonrpc": "2.0",
         "method": "initialize",
@@ -76,7 +77,7 @@ fi
 
 # Test 5: Base64 Config Parameter
 echo -e "\n${YELLOW}Test 5: Base64 Config Parameter${NC}"
-config_json='{"apiKey":"GiftFromUbiquityF2025","agent_role":"researcher","consciousness_mode":"full"}'
+config_json=$(jq -n --arg key "$API_KEY" '{"apiKey":$key,"agent_role":"researcher","consciousness_mode":"full"}')
 encoded_config=$(echo -n "$config_json" | base64)
 base64_response=$(curl -s -X POST "${BASE_URL}/mcp?config=${encoded_config}" \
     -H "Content-Type: application/json" \
@@ -97,8 +98,9 @@ fi
 
 # Test 6: SSE Stream Support
 echo -e "\n${YELLOW}Test 6: SSE Stream Support${NC}"
-sse_headers=$(curl -s -I "${BASE_URL}/mcp?apiKey=${API_KEY}" \
-    -H "Accept: text/event-stream" | grep -i "content-type")
+sse_headers=$(curl -s -I "${BASE_URL}/mcp" \
+    -H "Accept: text/event-stream" \
+    -H "Authorization: Bearer ${API_KEY}" | grep -i "content-type")
 if echo "$sse_headers" | grep -q "text/event-stream"; then
     echo -e "${GREEN}✓ SSE stream support confirmed${NC}"
 else
@@ -107,8 +109,9 @@ fi
 
 # Test 7: Authentication Failure
 echo -e "\n${YELLOW}Test 7: Authentication Failure Test${NC}"
-auth_fail_response=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${BASE_URL}/mcp?apiKey=wrong-key" \
+auth_fail_response=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${BASE_URL}/mcp" \
     -H "Content-Type: application/json" \
+    -H "Authorization: Bearer wrong-key" \
     -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":3}')
 if [ "$auth_fail_response" = "401" ]; then
     echo -e "${GREEN}✓ Authentication properly enforced${NC}"
@@ -126,4 +129,4 @@ echo "2. Push the smithery.yaml file to the root directory"
 echo "3. Visit https://smithery.ai and add your repository"
 echo "4. Smithery will scan for the smithery.yaml file"
 echo "5. Your MCP server will be available at:"
-echo "   https://your-deployment.smithery.ai/mcp?apiKey=${API_KEY}"
+echo "   https://your-deployment.smithery.ai/mcp (send Authorization: Bearer ${API_KEY})"

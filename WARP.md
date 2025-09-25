@@ -396,19 +396,24 @@ curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 ### Debug Endpoints
 ```bash  
 # System status
-curl http://localhost:8000/debug/status
+curl http://localhost:8000/debug/status \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
 
 # Active missions
-curl http://localhost:8000/debug/missions
+curl http://localhost:8000/debug/missions \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
 
 # WebSocket sessions
-curl http://localhost:8000/debug/sessions
+curl http://localhost:8000/debug/sessions \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
 
 # Paradox registry
-curl http://localhost:8000/debug/paradoxes
+curl http://localhost:8000/debug/paradoxes \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
 
 # Context sprawl analysis  
-curl http://localhost:8000/debug/sprawl
+curl http://localhost:8000/debug/sprawl \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
 ```
 
 ### Performance Monitoring

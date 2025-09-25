@@ -35,7 +35,7 @@ Session configuration is passed by clients when connecting to your server via qu
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `apiKey` | string | Yes | Authentication key (use "GiftFromUbiquityF2025") |
+| `apiKey` | string | Yes | Authentication key (DEMO KEY – public; override with `MOP_API_KEY`) |
 | `agent_role` | string | No | Agent role for context: researcher, analyst, monitor, watcher, orchestrator |
 | `consciousness_mode` | string | No | Consciousness level: full, partial, disabled (default: full) |
 | `max_context_size` | integer | No | Max context characters (1000-1000000, default: 100000) |
@@ -43,17 +43,26 @@ Session configuration is passed by clients when connecting to your server via qu
 | `shim_enabled` | boolean | No | Enable pitfall avoidance (default: true) |
 | `debug` | boolean | No | Enable debug logging (default: false) |
 
-### Example Session URLs
+### Example Session Requests
 
 ```bash
-# Basic connection
-https://your-server.smithery.ai/mcp?apiKey=GiftFromUbiquityF2025
+# Basic connection (Authorization header preferred)
+curl "https://your-server.smithery.ai/mcp" \
+  -H "Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}'
 
 # Research-focused with Exa orchestration
-https://your-server.smithery.ai/mcp?apiKey=GiftFromUbiquityF2025&agent_role=researcher&mission=exa-orchestration
+curl "https://your-server.smithery.ai/mcp?agent_role=researcher&mission=exa-orchestration" \
+  -H "Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 
-# Monitoring setup with debug
-https://your-server.smithery.ai/mcp?apiKey=GiftFromUbiquityF2025&agent_role=monitor&debug=true&max_context_size=50000
+# Monitoring setup with debug enabled
+curl "https://your-server.smithery.ai/mcp?agent_role=monitor&debug=true&max_context_size=50000" \
+  -H "Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/list","params":{}}'
 ```
 
 ## Transport Support
@@ -63,7 +72,7 @@ Context-Casial-Xpress supports Smithery's required "streamable-http" transport:
 - **Endpoint**: `/mcp`
 - **Methods**: GET (SSE), POST (JSON-RPC), HEAD (health), OPTIONS (CORS)
 - **Protocol**: MCP 2024-11-05
-- **Authentication**: Via apiKey query parameter
+- **Authentication**: Provide `Authorization: Bearer <api key>` (query parameter fallback supported for legacy clients)
 
 ## Configuration Schema
 
@@ -78,7 +87,7 @@ configSchema:
       type: "string"
       title: "API Key"
       description: "Your API key for authentication"
-      default: "GiftFromUbiquityF2025"
+      default: "DEMO_KEY_PUBLIC"
     agent_role:
       type: "string"
       title: "Agent Role"
@@ -130,8 +139,9 @@ Balanced configuration for general use:
 
 4. **Verify**: Check deployment logs and test with:
    ```bash
-   curl "https://your-server.smithery.ai/mcp?apiKey=GiftFromUbiquityF2025" \
-     -H "Accept: text/event-stream"
+   curl "https://your-server.smithery.ai/mcp" \
+     -H "Accept: text/event-stream" \
+     -H "Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}"
    ```
 
 ## Testing Your Configuration
@@ -143,15 +153,17 @@ curl https://your-server.smithery.ai/health
 
 ### List Tools
 ```bash
-curl -X POST "https://your-server.smithery.ai/mcp?apiKey=GiftFromUbiquityF2025" \
+curl -X POST "https://your-server.smithery.ai/mcp" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
   -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":1}'
 ```
 
 ### Test Tool Call
 ```bash
-curl -X POST "https://your-server.smithery.ai/mcp?apiKey=GiftFromUbiquityF2025&agent_role=researcher" \
+curl -X POST "https://your-server.smithery.ai/mcp?agent_role=researcher" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
   -d '{
     "jsonrpc": "2.0",
     "method": "tools/call",
@@ -183,9 +195,9 @@ These can be set in Smithery's deployment settings:
 
 ### Authentication Errors
 
-Ensure you're using the correct API key in your query parameters:
-```
-?apiKey=GiftFromUbiquityF2025
+Ensure you're sending the correct Authorization header on every request:
+```bash
+-H "Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}"
 ```
 
 ### Transport Errors
@@ -199,9 +211,9 @@ Should show `"transport": ["streamable-http"]`
 
 ### Session Configuration Not Applied
 
-Check that parameters are properly encoded in the URL:
+Check that session parameters are properly encoded in the URL:
 ```
-?apiKey=GiftFromUbiquityF2025&agent_role=researcher&consciousness_mode=full
+?agent_role=researcher&consciousness_mode=full
 ```
 
 ### Tool Execution Errors

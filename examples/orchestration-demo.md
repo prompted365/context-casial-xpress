@@ -239,8 +239,10 @@ For HTTP-based MCP clients:
 ```bash
 # With authentication and session config
 curl -N \
-  "http://localhost:8080/mcp?apiKey=GiftFromUbiquityF2025&consciousness_mode=full&max_context_size=50000" \
+  "http://localhost:8080/mcp?consciousness_mode=full&max_context_size=50000" \
   -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -H "Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
   -d '{
     "jsonrpc": "2.0",
     "method": "tools/call",

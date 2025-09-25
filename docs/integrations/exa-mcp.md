@@ -25,13 +25,19 @@ casial-server start \
       "transport": ["streamable-http", "websocket"],
       "url": "http://localhost:8080/mcp",
       "config": {
-        "apiKey": "GiftFromUbiquityF2025",
+        "apiKey": "REPLACE_WITH_YOUR_API_KEY",
         "agent_role": "researcher",
         "consciousness_mode": "full"
       }
     }
   }
 }
+```
+
+When configuring clients programmatically, prefer environment variables and fall back to the demo key only for local testing:
+
+```javascript
+const apiKey = process.env.MOP_API_KEY || 'DEMO_KEY_PUBLIC';
 ```
 
 ## Supported Exa Tools
@@ -169,10 +175,8 @@ rules:
 ### Session-Level Configuration
 
 ```bash
-curl "http://localhost:8080/mcp?apiKey=GiftFromUbiquityF2025\
-&agent_role=researcher\
-&consciousness_mode=full\
-&max_context_size=2000"
+curl "http://localhost:8080/mcp?agent_role=researcher&consciousness_mode=full&max_context_size=2000" \
+  -H "Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}"
 ```
 
 ## Monitoring and Debugging
@@ -180,7 +184,8 @@ curl "http://localhost:8080/mcp?apiKey=GiftFromUbiquityF2025\
 ### View Current Shim Configuration
 
 ```bash
-curl http://localhost:8080/debug/shim
+curl http://localhost:8080/debug/shim \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
 ```
 
 ### Check Applied Templates
@@ -188,7 +193,8 @@ curl http://localhost:8080/debug/shim
 Enable debug mode to see which templates are being applied:
 
 ```bash
-curl "http://localhost:8080/mcp?apiKey=GiftFromUbiquityF2025&debug=true"
+curl "http://localhost:8080/mcp?debug=true" \
+  -H "Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}"
 ```
 
 ### Audit Log
@@ -220,7 +226,7 @@ All augmentations are logged with:
       "args": ["path/to/casial-mcp-client.js"],
       "env": {
         "CASIAL_URL": "http://localhost:8080/mcp",
-        "CASIAL_API_KEY": "GiftFromUbiquityF2025",
+        "CASIAL_API_KEY": "REPLACE_WITH_YOUR_API_KEY",
         "AGENT_ROLE": "researcher"
       }
     }
@@ -238,7 +244,7 @@ async def main():
     client = Client(
         "http://localhost:8080/mcp",
         config={
-            "apiKey": "GiftFromUbiquityF2025",
+            "apiKey": "REPLACE_WITH_YOUR_API_KEY",
             "agent_role": "researcher"
         }
     )
@@ -259,7 +265,7 @@ async def main():
 
 ### Templates Not Applied
 
-1. Check mission is loaded: `curl http://localhost:8080/debug/missions`
+1. Check mission is loaded: `curl http://localhost:8080/debug/missions -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"`
 2. Verify perception mappings match tool names
 3. Ensure agent_role is set correctly
 

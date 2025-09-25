@@ -6,9 +6,9 @@ use crate::{config::DownstreamMcpServer, mcp};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use futures::{SinkExt, StreamExt};
-use tokio::sync::RwLock;
 use serde_json::Value;
 use std::{sync::Arc, time::Duration};
+use tokio::sync::RwLock;
 use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{debug, error, info, warn};
@@ -81,7 +81,10 @@ impl McpClient {
             return Ok(());
         }
 
-        info!("🔗 Connecting to downstream MCP server: {}", self.config.name);
+        info!(
+            "🔗 Connecting to downstream MCP server: {}",
+            self.config.name
+        );
 
         // Update state
         {
@@ -96,7 +99,7 @@ impl McpClient {
         // Spawn connection task
         let config = self.config.clone();
         let health = Arc::clone(&self.health);
-        
+
         self.handle = Some(tokio::spawn(async move {
             if let Err(e) = Self::connection_task(config, health, cmd_rx).await {
                 error!("Connection task failed: {}", e);
@@ -106,7 +109,7 @@ impl McpClient {
         // Wait for connection to establish
         let mut attempts = 0;
         let max_attempts = 30; // 3 seconds with 100ms intervals
-        
+
         while attempts < max_attempts {
             if self.is_connected().await {
                 return Ok(());
@@ -115,7 +118,9 @@ impl McpClient {
             attempts += 1;
         }
 
-        Err(anyhow::anyhow!("Failed to establish connection within timeout"))
+        Err(anyhow::anyhow!(
+            "Failed to establish connection within timeout"
+        ))
     }
 
     /// Check if client is connected
@@ -205,15 +210,19 @@ impl McpClient {
 
     /// Send a request to the downstream server
     async fn send_request(&self, request: mcp::JsonRpcRequest) -> Result<mcp::JsonRpcResponse> {
-        let sender = self.sender.as_ref()
+        let sender = self
+            .sender
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Client not connected"))?;
 
         let (response_tx, response_rx) = oneshot::channel();
-        
-        sender.send(ClientCommand::Send {
-            request,
-            response_tx,
-        }).context("Failed to send command")?;
+
+        sender
+            .send(ClientCommand::Send {
+                request,
+                response_tx,
+            })
+            .context("Failed to send command")?;
 
         response_rx.await.context("Response channel closed")?
     }
@@ -225,9 +234,10 @@ impl McpClient {
         mut cmd_rx: mpsc::UnboundedReceiver<ClientCommand>,
     ) -> Result<()> {
         let url = config.url.clone();
-        
+
         // Establish WebSocket connection
-        let (ws_stream, _) = connect_async(&url).await
+        let (ws_stream, _) = connect_async(&url)
+            .await
             .context("Failed to connect to downstream MCP server")?;
 
         info!("✅ Connected to downstream MCP server: {}", config.name);
@@ -263,7 +273,7 @@ impl McpClient {
                         Some(ClientCommand::Send { request, response_tx }) => {
                             let request_id = request.id.clone();
                             let request_json = serde_json::to_string(&request)?;
-                            
+
                             // Store pending request
                             if let Value::String(id) = &request_id {
                                 pending_requests.insert(id.clone(), PendingRequest {
@@ -385,7 +395,9 @@ impl McpClient {
 
         // Fail all pending requests
         for (_, pending) in pending_requests {
-            let _ = pending.sender.send(Err(anyhow::anyhow!("Connection closed")));
+            let _ = pending
+                .sender
+                .send(Err(anyhow::anyhow!("Connection closed")));
         }
 
         Ok(())
@@ -402,7 +414,7 @@ impl McpClient {
         }
 
         self.sender = None;
-        
+
         {
             let mut health = self.health.write().await;
             health.state = ConnectionState::Disconnected;
@@ -424,8 +436,8 @@ impl Drop for McpClient {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_client_creation() {
+    #[tokio::test]
+    async fn test_client_creation() {
         let config = DownstreamMcpServer {
             id: "test".to_string(),
             name: "Test Server".to_string(),
@@ -438,11 +450,11 @@ mod tests {
         };
 
         let client = McpClient::new(config);
-        assert!(!client.is_connected());
+        assert!(!client.is_connected().await);
     }
 
-    #[test]
-    fn test_health_tracking() {
+    #[tokio::test]
+    async fn test_health_tracking() {
         let config = DownstreamMcpServer {
             id: "test".to_string(),
             name: "Test Server".to_string(),
@@ -455,8 +467,8 @@ mod tests {
         };
 
         let client = McpClient::new(config);
-        let health = client.get_health();
-        
+        let health = client.get_health().await;
+
         assert!(matches!(health.state, ConnectionState::Disconnected));
         assert_eq!(health.message_count, 0);
         assert_eq!(health.error_count, 0);

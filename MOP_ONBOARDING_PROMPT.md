@@ -146,7 +146,7 @@ Discover opportunities in the orchestration space!
     "mop": {
       "url": "https://swarm.mop.quest/mcp",
       "transport": "sse",
-      "apiKey": "GiftFromUbiquityF2025"
+      "apiKey": "${MOP_API_KEY:-DEMO_KEY_PUBLIC}"
     }
   }
 }

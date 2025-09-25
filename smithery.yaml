@@ -13,8 +13,8 @@ startCommand:
       apiKey:
         type: "string"
         title: "API Key"
-        description: "Your API key for authentication (use 'GiftFromUbiquityF2025' for access)"
-        default: "GiftFromUbiquityF2025"
+        description: "Your API key for authentication (DEMO KEY – public). Override via the MOP_API_KEY environment variable."
+        default: "DEMO_KEY_PUBLIC"
       agent_role:
         type: "string"
         title: "Agent Role"
@@ -51,13 +51,22 @@ startCommand:
         description: "Enable debug logging"
         default: false
   exampleConfig:
-    apiKey: "GiftFromUbiquityF2025"
+    apiKey: "DEMO_KEY_PUBLIC"
     agent_role: "researcher"
     consciousness_mode: "full"
     max_context_size: 50000
     mission: "exa-orchestration"
     shim_enabled: true
     debug: false
+  commandFunction: |
+    module.exports = async function ({ env, config }) {
+      const apiKey = env.MOP_API_KEY ?? config.apiKey ?? 'DEMO_KEY_PUBLIC';
+      return {
+        headers: {
+          Authorization: 'Bearer ' + apiKey,
+        },
+      };
+    };
 build:
   dockerfile: "Dockerfile"
   dockerBuildPath: "."

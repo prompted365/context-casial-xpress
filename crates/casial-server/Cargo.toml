@@ -78,8 +78,9 @@ hostname = "0.3"
 # Base64 encoding/decoding
 base64 = "0.22"
 
-# Lazy static initialization
-lazy_static = "1.4"
+# Lazy initialization
+once_cell = { workspace = true }
+rand = "0.8"
 
 [dev-dependencies]
 tokio-test = "0.4"

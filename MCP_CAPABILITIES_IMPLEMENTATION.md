@@ -6,7 +6,7 @@ Successfully implemented all four MCP (Model Context Protocol) capabilities in t
 1. **Tools** ✅ - Already implemented, with orchestration-aware tools
 2. **Prompts** ✅ - Added orchestration and analysis prompts  
 3. **Resources** ✅ - Added context, history, consciousness state, and federation info
-4. **Sampling** ✅ - Implemented with appropriate client-side delegation message
+4. **Sampling** ✅ - Advertised when `MOP_ENABLE_SAMPLING` is truthy so clients know to delegate
 
 ## Key Changes
 
@@ -15,9 +15,11 @@ Successfully implemented all four MCP (Model Context Protocol) capabilities in t
 - Server no longer panics on startup with `ALLOWED_ORIGINS="*"`
 
 ### 2. Updated Server Capabilities
-All capabilities now advertised as `true` in:
+Capabilities are advertised in:
 - `/initialize` response
 - `/.well-known/mcp-config` endpoint
+
+> ℹ️ The `sampling` capability reflects `MOP_ENABLE_SAMPLING`. When unset the server returns an explicit "sampling disabled" error and hides sampling metadata from discovery responses.
 
 ### 3. Implemented New Handlers
 - `handle_prompts_list` - Returns 3 orchestration-focused prompts
@@ -45,15 +47,18 @@ All endpoints tested successfully:
 curl http://localhost:8001/.well-known/mcp-config
 
 # Prompts work
-curl -X POST "http://localhost:8001/mcp?apiKey=GiftFromUbiquityF2025" \
+curl -X POST "http://localhost:8001/mcp" \
+  -H "Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
   -d '{"jsonrpc": "2.0", "method": "prompts/list", "params": {}, "id": 1}'
 
-# Resources work  
-curl -X POST "http://localhost:8001/mcp?apiKey=GiftFromUbiquityF2025" \
+# Resources work
+curl -X POST "http://localhost:8001/mcp" \
+  -H "Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
   -d '{"jsonrpc": "2.0", "method": "resources/list", "params": {}, "id": 2}'
 
 # Sampling returns expected error
-curl -X POST "http://localhost:8001/mcp?apiKey=GiftFromUbiquityF2025" \
+curl -X POST "http://localhost:8001/mcp" \
+  -H "Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
   -d '{"jsonrpc": "2.0", "method": "sampling/createMessage", "params": {...}, "id": 3}'
 ```
 
