@@ -6,7 +6,7 @@ Successfully implemented all four MCP (Model Context Protocol) capabilities in t
 1. **Tools** ✅ - Already implemented, with orchestration-aware tools
 2. **Prompts** ✅ - Added orchestration and analysis prompts  
 3. **Resources** ✅ - Added context, history, consciousness state, and federation info
-4. **Sampling** ✅ - Advertised when `MOP_ENABLE_SAMPLING` is truthy so clients know to delegate
+4. **Sampling** ✅ - Advertised only when `MOP_ENABLE_SAMPLING` is truthy (hidden otherwise) so clients know to delegate
 
 ## Key Changes
 

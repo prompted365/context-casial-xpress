@@ -61,6 +61,7 @@ export default function () {
   const listRes = http.post(BASE_URL, listPayload, {
     headers: {
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${API_KEY}`,
       'mcp-session-id': sessionId,
     },
   });

@@ -453,10 +453,16 @@ curl http://localhost:8000/metrics
 # Debug information
 curl http://localhost:8000/debug/substrate \
   -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
+curl http://localhost:8000/debug/substrate \
+  -H "Authorization: Bearer ${MOP_ADMIN_TOKEN:-set-me}"
 curl http://localhost:8000/debug/sessions \
   -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
+curl http://localhost:8000/debug/sessions \
+  -H "Authorization: Bearer ${MOP_ADMIN_TOKEN:-set-me}"
 curl http://localhost:8000/debug/perceptions \
   -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
+curl http://localhost:8000/debug/perceptions \
+  -H "Authorization: Bearer ${MOP_ADMIN_TOKEN:-set-me}"
 ```
 
 ## 📚 Examples & Tutorials

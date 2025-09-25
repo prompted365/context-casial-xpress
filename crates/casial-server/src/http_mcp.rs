@@ -6,13 +6,12 @@
 use anyhow::Result;
 use axum::{
     extract::{Query, State},
-    http::{header, HeaderName, Method, StatusCode},
+    http::{header, HeaderMap, HeaderName, HeaderValue, Method, StatusCode},
     response::{sse::Event, IntoResponse, Response, Sse},
     Json,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use dashmap::DashMap;
-use http::{HeaderMap, HeaderValue};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -25,8 +24,8 @@ use tower_http::cors::{Any, CorsLayer};
 
 const ALLOWED_METHODS: &str = "GET, POST, DELETE, HEAD, OPTIONS";
 const ALLOWED_HEADERS: &str =
-    "Content-Type, Authorization, Accept, Cache-Control, Mcp-Session-Id, Mcp-Protocol-Version, X-Session-Id";
-const EXPOSED_HEADERS: &str = "Mcp-Session-Id, Mcp-Protocol-Version, X-Session-Id";
+    "Content-Type, Authorization, Accept, Cache-Control, Mcp-Session-Id, Mcp-Protocol-Version";
+const EXPOSED_HEADERS: &str = "Mcp-Session-Id, Mcp-Protocol-Version";
 
 /// Global CORS policy shared across manual responses
 #[derive(Debug, Clone)]
@@ -93,9 +92,9 @@ impl CorsPolicy {
         }
     }
 
-    fn resolve_origin(&self, request_headers: &HeaderMap) -> HeaderValue {
+    fn resolve_origin(&self, request_headers: &HeaderMap) -> Option<HeaderValue> {
         match &self.origin_policy {
-            OriginPolicy::Any => HeaderValue::from_static("*"),
+            OriginPolicy::Any => Some(HeaderValue::from_static("*")),
             OriginPolicy::List(allowed) => {
                 if let Some(request_origin) = request_headers
                     .get(header::ORIGIN)
@@ -105,14 +104,10 @@ impl CorsPolicy {
                         .iter()
                         .find(|origin| origin.as_bytes() == request_origin.as_bytes())
                     {
-                        return matching.clone();
+                        return Some(matching.clone());
                     }
                 }
-
-                allowed
-                    .first()
-                    .cloned()
-                    .unwrap_or_else(|| HeaderValue::from_static("*"))
+                None
             }
         }
     }
@@ -139,7 +134,6 @@ pub fn build_cors_layer() -> CorsLayer {
         header::CACHE_CONTROL,
         HeaderName::from_static("mcp-session-id"),
         HeaderName::from_static("mcp-protocol-version"),
-        HeaderName::from_static("x-session-id"),
     ];
 
     let methods = [
@@ -158,7 +152,6 @@ pub fn build_cors_layer() -> CorsLayer {
             .expose_headers([
                 HeaderName::from_static("mcp-session-id"),
                 HeaderName::from_static("mcp-protocol-version"),
-                HeaderName::from_static("x-session-id"),
             ]),
         OriginPolicy::List(origins) => {
             let mut layer = CorsLayer::new()
@@ -168,7 +161,6 @@ pub fn build_cors_layer() -> CorsLayer {
                 .expose_headers([
                     HeaderName::from_static("mcp-session-id"),
                     HeaderName::from_static("mcp-protocol-version"),
-                    HeaderName::from_static("x-session-id"),
                 ]);
 
             if policy.allow_credentials() {
@@ -183,9 +175,22 @@ pub fn build_cors_layer() -> CorsLayer {
 /// Apply manual CORS headers to a response
 pub fn apply_cors_headers(headers: &mut HeaderMap, request_headers: &HeaderMap) {
     let policy = cors_policy();
-    let origin = policy.resolve_origin(request_headers);
+    if let Some(origin) = policy.resolve_origin(request_headers) {
+        headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
 
-    headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+        if policy.allow_credentials() {
+            headers.insert(
+                header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
+                HeaderValue::from_static("true"),
+            );
+        } else {
+            headers.remove(header::ACCESS_CONTROL_ALLOW_CREDENTIALS);
+        }
+    } else {
+        headers.remove(header::ACCESS_CONTROL_ALLOW_ORIGIN);
+        headers.remove(header::ACCESS_CONTROL_ALLOW_CREDENTIALS);
+    }
+
     headers.insert(
         header::ACCESS_CONTROL_ALLOW_METHODS,
         HeaderValue::from_static(ALLOWED_METHODS),
@@ -199,15 +204,6 @@ pub fn apply_cors_headers(headers: &mut HeaderMap, request_headers: &HeaderMap) 
         HeaderValue::from_static(EXPOSED_HEADERS),
     );
     headers.insert(header::VARY, HeaderValue::from_static("Origin"));
-
-    if policy.allow_credentials() {
-        headers.insert(
-            header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
-            HeaderValue::from_static("true"),
-        );
-    } else {
-        headers.remove(header::ACCESS_CONTROL_ALLOW_CREDENTIALS);
-    }
 }
 
 #[cfg(test)]
@@ -228,7 +224,7 @@ mod tests {
         let policy = CorsPolicy::from_env();
         let origin = policy.resolve_origin(&HeaderMap::new());
 
-        assert_eq!(origin, HeaderValue::from_static("*"));
+        assert_eq!(origin, Some(HeaderValue::from_static("*")));
         assert!(!policy.allow_credentials());
     }
 
@@ -244,7 +240,7 @@ mod tests {
         );
 
         let origin = policy.resolve_origin(&headers);
-        assert_eq!(origin, HeaderValue::from_static("https://other.test"));
+        assert_eq!(origin, Some(HeaderValue::from_static("https://other.test")));
         assert!(policy.allow_credentials());
         reset_env();
     }
@@ -258,7 +254,7 @@ mod tests {
         let mut headers = HeaderMap::new();
         apply_cors_headers(&mut headers, &HeaderMap::new());
 
-        assert_eq!(origin, HeaderValue::from_static("*"));
+        assert_eq!(origin, Some(HeaderValue::from_static("*")));
         assert!(!policy.allow_credentials());
         assert!(headers
             .get(header::ACCESS_CONTROL_ALLOW_CREDENTIALS)
@@ -378,9 +374,12 @@ pub async fn mcp_handler(
     let mut api_key_from_header: Option<String> = None;
     if let Some(auth_header) = headers.get(header::AUTHORIZATION) {
         if let Ok(auth_str) = auth_header.to_str() {
-            if auth_str.starts_with("Bearer ") {
-                api_key_from_header = Some(auth_str[7..].to_string());
-                debug!("Found Bearer token in Authorization header");
+            if let Some((scheme, token)) = auth_str.split_once(' ') {
+                let token = token.trim();
+                if scheme.eq_ignore_ascii_case("bearer") && !token.is_empty() {
+                    api_key_from_header = Some(token.to_string());
+                    debug!("Found Bearer token in Authorization header");
+                }
             }
         }
     }
@@ -465,7 +464,7 @@ pub async fn mcp_handler(
         Method::OPTIONS => {
             // Handle CORS preflight with proper headers for Smithery
             Ok(Response::builder()
-                .status(StatusCode::OK)
+                .status(StatusCode::NO_CONTENT)
                 .body(axum::body::Body::empty())
                 .unwrap())
         }
@@ -644,7 +643,7 @@ async fn handle_get_sse(
     let response = Sse::new(stream).keep_alive(
         axum::response::sse::KeepAlive::new()
             .interval(std::time::Duration::from_secs(30))
-            .text(":"), // Standard SSE keep-alive format (colon only, no newline)
+            .text("keep-alive"),
     );
 
     Ok(response.into_response())
@@ -721,20 +720,9 @@ async fn handle_initialize(
     };
 
     let sampling_enabled = sampling_feature_enabled();
-    let sampling_capabilities = if sampling_enabled {
-        json!({
-            "clientSide": true,
-            "notes": "Sampling requests are routed to the client's LLM"
-        })
-    } else {
-        json!({
-            "enabled": false,
-            "reason": "Server configured without sampling support (set MOP_ENABLE_SAMPLING=1 to advertise)."
-        })
-    };
 
     // Build server capabilities
-    let server_capabilities = json!({
+    let mut server_capabilities = json!({
         "tools": {
             "listChanged": true
         },
@@ -745,7 +733,6 @@ async fn handle_initialize(
             "listChanged": true,
             "subscribe": true
         },
-        "sampling": sampling_capabilities,
         "logging": {},
         "completion": {
             "enabled": true
@@ -755,6 +742,18 @@ async fn handle_initialize(
             "paradox_handling": true
         }
     });
+
+    if sampling_enabled {
+        if let Some(map) = server_capabilities.as_object_mut() {
+            map.insert(
+                "sampling".to_string(),
+                json!({
+                    "clientSide": true,
+                    "notes": "Sampling requests are routed to the client's LLM"
+                }),
+            );
+        }
+    }
 
     // Build response
     let result = json!({
@@ -815,7 +814,8 @@ async fn handle_tools_list(state: &AppState, request: JsonRpcRequest) -> JsonRpc
             json!({
                 "name": tool.name,
                 "description": tool.description,
-                "inputSchema": tool.input_schema
+                "inputSchema": tool.input_schema,
+                "outputSchema": tool.output_schema
             })
         })
         .collect();
@@ -976,6 +976,23 @@ async fn handle_completion(_state: &AppState, request: JsonRpcRequest) -> JsonRp
 fn build_mcp_config() -> serde_json::Value {
     let sampling_enabled = sampling_feature_enabled();
 
+    let mut capabilities = serde_json::Map::new();
+    capabilities.insert("tools".to_string(), serde_json::Value::Bool(true));
+    capabilities.insert("prompts".to_string(), serde_json::Value::Bool(true));
+    capabilities.insert("resources".to_string(), serde_json::Value::Bool(true));
+    if sampling_enabled {
+        capabilities.insert("sampling".to_string(), serde_json::Value::Bool(true));
+    }
+
+    let mut feature_flags = serde_json::Map::new();
+    if sampling_enabled {
+        feature_flags.insert("samplingEnabled".to_string(), serde_json::Value::Bool(true));
+        feature_flags.insert(
+            "samplingRequiresClientLLM".to_string(),
+            serde_json::Value::Bool(true),
+        );
+    }
+
     json!({
         "name": "meta-orchestration-protocol",
         "title": "Meta-Orchestration Protocol (MOP) Server",
@@ -984,16 +1001,8 @@ fn build_mcp_config() -> serde_json::Value {
         "vendor": "Prompted LLC",
         "homepage": "https://github.com/prompted365/context-casial-xpress",
         "transport": ["streamable-http"],
-        "capabilities": {
-            "tools": true,
-            "prompts": true,
-            "resources": true,
-            "sampling": sampling_enabled
-        },
-        "featureFlags": {
-            "samplingEnabled": sampling_enabled,
-            "samplingRequiresClientLLM": true
-        },
+        "capabilities": serde_json::Value::Object(capabilities),
+        "featureFlags": serde_json::Value::Object(feature_flags),
         "configSchema": {
             "$schema": "http://json-schema.org/draft-07/schema#",
             "$id": "https://swarm.mop.quest/.well-known/mcp-config",
@@ -1007,7 +1016,7 @@ fn build_mcp_config() -> serde_json::Value {
                 "apiKey": {
                     "type": "string",
                     "title": "API Key",
-                    "description": "Your API key for authentication (DEMO KEY – public). Override by setting MOP_API_KEY.",
+                    "description": "Your API key for authentication (DEMO KEY – public). Override by setting MOP_API_KEY. Required unless you supply an Authorization: Bearer header.",
                     "default": format!("${{MOP_API_KEY:-{}}}", DEMO_API_KEY)
                 },
                 "agent_role": {

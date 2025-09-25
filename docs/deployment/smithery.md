@@ -35,13 +35,15 @@ Session configuration is passed by clients when connecting to your server via qu
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `apiKey` | string | Yes | Authentication key (DEMO KEY – public; override with `MOP_API_KEY`) |
+| `apiKey` | string | Yes* | Authentication key (DEMO KEY – public; override with `MOP_API_KEY`; Authorization header accepted as an alternative) |
 | `agent_role` | string | No | Agent role for context: researcher, analyst, monitor, watcher, orchestrator |
 | `consciousness_mode` | string | No | Consciousness level: full, partial, disabled (default: full) |
 | `max_context_size` | integer | No | Max context characters (1000-1000000, default: 100000) |
 | `mission` | string | No | Pre-configured mission: exa-orchestration, general, research, monitoring |
 | `shim_enabled` | boolean | No | Enable pitfall avoidance (default: true) |
 | `debug` | boolean | No | Enable debug logging (default: false) |
+
+> **Note:** `apiKey` remains required unless every request supplies an `Authorization: Bearer` header.
 
 ### Example Session Requests
 
@@ -212,7 +214,7 @@ Should show `"transport": ["streamable-http"]`
 ### Session Configuration Not Applied
 
 Check that session parameters are properly encoded in the URL:
-```
+```text
 ?agent_role=researcher&consciousness_mode=full
 ```
 

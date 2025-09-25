@@ -14,8 +14,9 @@
 - Added POST support for potential JSON-RPC requests
 
 ### 3. CORS Headers
-- **Allowed headers**: `Authorization`, `Mop-Api-Key`, `Content-Type`, and MCP session headers
-- **Exposed headers**: `mcp-session-id`, `mcp-protocol-version`, `x-session-id`
+- **Allowed headers**: `Authorization`, `Mop-Admin-Token`, `Content-Type`, and MCP session headers
+- Smithery caches should respect `Vary: Origin, Authorization, Mop-Admin-Token` to avoid credential mix-ups.
+- **Exposed headers**: `mcp-session-id`, `mcp-protocol-version`
 - **Credentials**: Enabled when `ALLOWED_ORIGINS` is a comma-delimited allow list; disabled automatically for `*`
 - **Methods**: GET, POST, OPTIONS
 

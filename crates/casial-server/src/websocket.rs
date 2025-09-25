@@ -348,16 +348,20 @@ impl WebSocketHandler {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing tool name"))?;
 
-        let args = params
+        let mut args = params
             .get("arguments")
             .cloned()
             .unwrap_or(serde_json::json!({}));
 
-        // Extract execution mode
-        let mode = args
+        // Extract execution mode (request-level)
+        let mode = params
             .get("mode")
             .and_then(|v| v.as_str())
             .unwrap_or("execute");
+
+        if let Some(obj) = args.as_object_mut() {
+            obj.remove("mode");
+        }
 
         info!(
             "🔧 Executing tool: {} with consciousness coordination (mode: {})",
