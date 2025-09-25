@@ -502,7 +502,11 @@ impl ParadoxManager {
             let paradox = self.active_paradoxes.get(&paradox_id).ok_or_else(|| {
                 CasialError::ParadoxTimeout(format!("Paradox {} not found", paradox_id))
             })?;
-            (paradox.resolution_strategy.clone(), paradox.conflicting_elements.clone(), paradox.description.clone())
+            (
+                paradox.resolution_strategy.clone(),
+                paradox.conflicting_elements.clone(),
+                paradox.description.clone(),
+            )
         };
 
         let start_time = std::time::Instant::now();

@@ -8,7 +8,7 @@
 - Config can be passed as `?config=<base64-encoded-json>` or direct parameters
 
 ### 2. API Key Updated ✅
-- API key is now: `GiftFromUbiquityF2025`
+- API key is now: `${MOP_API_KEY:-DEMO_KEY_PUBLIC}` _(DEMO KEY – public)_
 - Enforced in all HTTP/SSE endpoints
 - Returns 401 Unauthorized for invalid/missing keys
 
@@ -50,7 +50,7 @@ MCP_TEST_URL=https://meta-orchestration-protocol-production.up.railway.app ./tes
 
 ## Key Endpoints
 
-- **MCP Endpoint**: `/mcp?apiKey=GiftFromUbiquityF2025`
+- **MCP Endpoint**: `/mcp` (send `Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}`)
 - **Config Endpoint**: `/.well-known/mcp-config`
 - **Health Check**: `/health`
 - **Metrics**: `/metrics`
@@ -60,7 +60,8 @@ MCP_TEST_URL=https://meta-orchestration-protocol-production.up.railway.app ./tes
 
 ### Direct Parameters
 ```
-/mcp?apiKey=GiftFromUbiquityF2025&agent_role=researcher&consciousness_mode=full
+/mcp?agent_role=researcher&consciousness_mode=full
+Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}
 ```
 
 ### Base64 Config

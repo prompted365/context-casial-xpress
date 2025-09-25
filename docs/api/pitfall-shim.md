@@ -97,8 +97,11 @@ All tool responses are augmented with `_response_metadata`:
 
 ### View Shim Configuration
 
+> Requires `Mop-Admin-Token: <MOP_ADMIN_TOKEN>` or `Authorization: Bearer <MOP_ADMIN_TOKEN>` header.
+
 ```bash
 GET /debug/shim
+Mop-Admin-Token: ${MOP_ADMIN_TOKEN}
 
 Response:
 {
@@ -123,6 +126,7 @@ Response:
 ```bash
 POST /debug/shim
 Content-Type: application/json
+Mop-Admin-Token: ${MOP_ADMIN_TOKEN}
 
 {
   "enabled": true,
@@ -144,6 +148,17 @@ Response:
   "message": "Shim configuration updated",
   "new_config": {...}
 }
+```
+
+If the admin token is missing or incorrect the server responds with:
+
+```http
+HTTP/1.1 401 Unauthorized
+Content-Type: application/json
+WWW-Authenticate: Bearer realm="mop-debug"
+Vary: Origin, Authorization, Mop-Admin-Token
+
+{"error":"unauthorized","message":"Provide MOP_ADMIN_TOKEN via Mop-Admin-Token header or Authorization: Bearer"}
 ```
 
 ## Tool-Specific Warnings

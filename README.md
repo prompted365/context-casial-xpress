@@ -60,7 +60,7 @@ mkdir missions && cp examples/missions/* missions/
 **WebSocket endpoint**: `ws://localhost:8000/ws`
 **HTTP/SSE MCP endpoint**: `http://localhost:8000/mcp`
 **MCP config endpoint**: `http://localhost:8000/.well-known/mcp-config`
-**Shim config endpoint**: `http://localhost:8000/debug/shim`
+**Shim config endpoint**: `http://localhost:8000/debug/shim` (requires `Mop-Admin-Token` or `Authorization: Bearer` header)
 **Health check**: `http://localhost:8000/health`
 
 > 📖 **Full deployment guide**: [docs/tutorials/quickstart.md](docs/tutorials/quickstart.md)

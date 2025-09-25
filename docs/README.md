@@ -377,7 +377,8 @@ graph TD
 - **WebSocket MCP**: `ws://localhost:8000/ws`
 - **HTTP/SSE MCP**: `http://localhost:8000/mcp` (Smithery.ai compatible)
 - **MCP Config**: `http://localhost:8000/.well-known/mcp-config`
-- **Shim Config**: `http://localhost:8000/debug/shim`
+- **Shim Config**: `http://localhost:8000/debug/shim` (requires `Mop-Admin-Token` or `Authorization: Bearer` header)
+- **Sampling Contract**: see [docs/SAMPLING_CONTRACT.md](SAMPLING_CONTRACT.md) for client responsibilities and the `MOP_ENABLE_SAMPLING` feature flag.
 
 ### Orchestration Tools
 
@@ -450,9 +451,12 @@ curl http://localhost:8000/health
 curl http://localhost:8000/metrics
 
 # Debug information
-curl http://localhost:8000/debug/substrate
-curl http://localhost:8000/debug/sessions
-curl http://localhost:8000/debug/perceptions
+curl http://localhost:8000/debug/substrate \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
+curl http://localhost:8000/debug/sessions \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
+curl http://localhost:8000/debug/perceptions \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
 ```
 
 ## 📚 Examples & Tutorials
@@ -556,3 +560,4 @@ Context-Casial-Xpress is released under a Fair Use license. See [LICENSE.md](../
 **Built with ❤️ by Prompted LLC for the Ubiquity OS ecosystem**
 
 *Stronger under pressure, like hydraulic lime.*
+> ⚠️ **Admin Access Required**: All `/debug/*` endpoints require either a `Mop-Admin-Token: <MOP_ADMIN_TOKEN>` header or `Authorization: Bearer <MOP_ADMIN_TOKEN>`. When the token is unset the server returns `{"error":"admin_token_unset","message":"Set MOP_ADMIN_TOKEN to enable /debug endpoints"}` with `WWW-Authenticate: Bearer realm="mop-debug"` and responses vary on `Origin`, `Authorization`, and `Mop-Admin-Token` headers for proper caching.

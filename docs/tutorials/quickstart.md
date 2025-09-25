@@ -324,13 +324,16 @@ curl http://localhost:8000/metrics
 
 ```bash
 # Substrate status
-curl http://localhost:8000/debug/substrate
+curl http://localhost:8000/debug/substrate \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
 
 # Active sessions
-curl http://localhost:8000/debug/sessions
+curl http://localhost:8000/debug/sessions \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
 
 # Perception state
-curl http://localhost:8000/debug/perceptions
+curl http://localhost:8000/debug/perceptions \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
 ```
 
 ## 🧪 Testing Consciousness Features
@@ -340,6 +343,7 @@ curl http://localhost:8000/debug/perceptions
 ```bash
 # Create a perception
 curl -X POST http://localhost:8000/debug/perceptions \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
   -H "Content-Type: application/json" \
   -d '{
     "content": "Market analysis indicates strong AI infrastructure growth",
@@ -349,6 +353,7 @@ curl -X POST http://localhost:8000/debug/perceptions \
 
 # Lock the perception
 curl -X POST http://localhost:8000/debug/perceptions/lock \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
   -H "Content-Type: application/json" \
   -d '{"perception_id": "generated-id", "session_id": "test-session"}'
 ```
@@ -358,6 +363,7 @@ curl -X POST http://localhost:8000/debug/perceptions/lock \
 ```bash
 # Inject conflicting perceptions
 curl -X POST http://localhost:8000/debug/paradox \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
   -H "Content-Type: application/json" \
   -d '{
     "perception_a": {
@@ -371,7 +377,8 @@ curl -X POST http://localhost:8000/debug/paradox \
   }'
 
 # Check resolution strategy
-curl http://localhost:8000/debug/paradox/latest
+curl http://localhost:8000/debug/paradox/latest \
+  -H "Mop-Admin-Token: ${MOP_ADMIN_TOKEN:-set-me}"
 ```
 
 ## 🎓 Next Steps

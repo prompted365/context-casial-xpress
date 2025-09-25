@@ -279,7 +279,7 @@ cd context-casial-xpress
 cargo build --release
 
 # Configure API key
-export MOP_API_KEY="GiftFromUbiquityF2025"
+export MOP_API_KEY="DEMO_KEY_PUBLIC" # DEMO KEY – public
 
 # Start server
 ./target/release/casial-server start --port 8003

@@ -14,9 +14,9 @@
 - Added POST support for potential JSON-RPC requests
 
 ### 3. CORS Headers
-- **Allow all headers**: Changed from specific headers to `Any` (*)
-- **Exposed headers**: Added `mcp-session-id`, `mcp-protocol-version`, `x-session-id`
-- **Allow credentials**: Set to `true` for all CORS configurations
+- **Allowed headers**: `Authorization`, `Mop-Api-Key`, `Content-Type`, and MCP session headers
+- **Exposed headers**: `mcp-session-id`, `mcp-protocol-version`, `x-session-id`
+- **Credentials**: Enabled when `ALLOWED_ORIGINS` is a comma-delimited allow list; disabled automatically for `*`
 - **Methods**: GET, POST, OPTIONS
 
 ### 4. Server Metadata
@@ -41,7 +41,7 @@ Ensure:
 1. Server binds to correct PORT (8081)
 2. CORS headers are properly configured
 3. `/mcp` endpoint responds to `initialize` and `tools/list` methods
-4. Authentication is handled correctly (apiKey parameter)
+4. Authentication is handled correctly (Authorization Bearer header)
 
 ## Testing Your Server
 
@@ -50,13 +50,15 @@ Ensure:
 curl https://your-server.railway.app/.well-known/mcp-config
 
 # Test MCP initialize
-curl -X POST "https://your-server.railway.app/mcp?apiKey=GiftFromUbiquityF2025" \
+curl -X POST "https://your-server.railway.app/mcp" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
   -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}},"id":1}'
 
 # Test tools list
-curl -X POST "https://your-server.railway.app/mcp?apiKey=GiftFromUbiquityF2025" \
+curl -X POST "https://your-server.railway.app/mcp" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
   -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":2}'
 ```
 
@@ -76,7 +78,7 @@ curl -X POST "https://your-server.railway.app/mcp?apiKey=GiftFromUbiquityF2025" 
 - **Server Name**: meta-orchestration-protocol
 - **Default Port**: 8081 (via PORT env var)
 - **Transport**: streamable-http
-- **API Key**: GiftFromUbiquityF2025
+- **API Key**: Send `Authorization: Bearer ${MOP_API_KEY:-DEMO_KEY_PUBLIC}` _(DEMO KEY – public)_
 - **Endpoints**:
   - `/health` - Health check
   - `/mcp` - Main MCP endpoint (HTTP/SSE)

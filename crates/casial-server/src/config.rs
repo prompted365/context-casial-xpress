@@ -53,6 +53,34 @@ pub struct FederationSettings {
     pub spec_version_tracking: bool,
     pub connection_timeout_ms: u64,
     pub max_retries: u32,
+    #[serde(default = "default_tool_cache_ttl_seconds")]
+    pub tool_cache_ttl_seconds: u64,
+    #[serde(default = "default_circuit_breaker_threshold")]
+    pub circuit_breaker_threshold: u32,
+    #[serde(default = "default_circuit_breaker_reset_seconds")]
+    pub circuit_breaker_reset_seconds: u64,
+    #[serde(default = "default_backoff_initial_ms")]
+    pub backoff_initial_ms: u64,
+    #[serde(default = "default_backoff_max_ms")]
+    pub backoff_max_ms: u64,
+}
+
+impl Default for FederationSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            downstream_servers: vec![],
+            catalog_refresh_interval: 300,
+            spec_version_tracking: true,
+            connection_timeout_ms: 10_000,
+            max_retries: 3,
+            tool_cache_ttl_seconds: default_tool_cache_ttl_seconds(),
+            circuit_breaker_threshold: default_circuit_breaker_threshold(),
+            circuit_breaker_reset_seconds: default_circuit_breaker_reset_seconds(),
+            backoff_initial_ms: default_backoff_initial_ms(),
+            backoff_max_ms: default_backoff_max_ms(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,16 +127,29 @@ impl Default for ServerConfig {
                 json_format: false,
                 file_output: None,
             },
-            federation: FederationSettings {
-                enabled: false, // Disabled by default
-                downstream_servers: vec![],
-                catalog_refresh_interval: 300, // 5 minutes
-                spec_version_tracking: true,
-                connection_timeout_ms: 10000, // 10 seconds
-                max_retries: 3,
-            },
+            federation: FederationSettings::default(),
         }
     }
+}
+
+fn default_tool_cache_ttl_seconds() -> u64 {
+    300
+}
+
+fn default_circuit_breaker_threshold() -> u32 {
+    3
+}
+
+fn default_circuit_breaker_reset_seconds() -> u64 {
+    180
+}
+
+fn default_backoff_initial_ms() -> u64 {
+    250
+}
+
+fn default_backoff_max_ms() -> u64 {
+    5_000
 }
 
 impl ServerConfig {
