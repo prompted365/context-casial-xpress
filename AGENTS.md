@@ -31,8 +31,8 @@ when making changes.
 ## Security & Operations
 - `/debug/*` routes require `MOP_ADMIN_TOKEN`; maintain this middleware when introducing new
   debug surfaces.
-- API auth uses the Mop-Api-Key header or Smithery query param. All example configs should use
-  `${MOP_API_KEY:-DEMO_KEY_PUBLIC}` to avoid leaking real secrets.
+- API auth uses the `Authorization: Bearer` header. Do not pass secrets in query parameters.
+  Use `${MOP_API_KEY:-DEMO_KEY_PUBLIC}` in examples to avoid leaking real secrets.
 - When modifying CORS or auth flows, update `test_mop_curl_commands.sh` and the Smithery
   compatibility script accordingly.
 
