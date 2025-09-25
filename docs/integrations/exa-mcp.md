@@ -25,7 +25,7 @@ casial-server start \
       "transport": ["streamable-http", "websocket"],
       "url": "http://localhost:8080/mcp",
       "config": {
-        "apiKey": "${MOP_API_KEY:-DEMO_KEY_PUBLIC}",
+        "apiKey": "REPLACE_WITH_YOUR_API_KEY",
         "agent_role": "researcher",
         "consciousness_mode": "full"
       }
