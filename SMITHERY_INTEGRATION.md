@@ -50,12 +50,12 @@ Ensure:
 curl https://your-server.railway.app/.well-known/mcp-config
 
 # Test MCP initialize
-curl -X POST "https://your-server.railway.app/mcp?apiKey=GiftFromUbiquityF2025" \
+curl -X POST "https://your-server.railway.app/mcp?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}},"id":1}'
 
 # Test tools list
-curl -X POST "https://your-server.railway.app/mcp?apiKey=GiftFromUbiquityF2025" \
+curl -X POST "https://your-server.railway.app/mcp?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":2}'
 ```
@@ -76,7 +76,7 @@ curl -X POST "https://your-server.railway.app/mcp?apiKey=GiftFromUbiquityF2025" 
 - **Server Name**: meta-orchestration-protocol
 - **Default Port**: 8081 (via PORT env var)
 - **Transport**: streamable-http
-- **API Key**: GiftFromUbiquityF2025
+- **API Key**: `${MOP_API_KEY:-DEMO_KEY_PUBLIC}` _(DEMO KEY – public)_
 - **Endpoints**:
   - `/health` - Health check
   - `/mcp` - Main MCP endpoint (HTTP/SSE)

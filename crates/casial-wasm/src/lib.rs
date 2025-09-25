@@ -3,10 +3,7 @@
 //! WebAssembly bindings for universal consciousness-aware context coordination.
 //! Enables deployment across browsers, edge computing, and any JavaScript environment.
 
-use casial_core::{
-    CasialEngine, CasialMission, CoordinationRequest,
-    PerceptionId,
-};
+use casial_core::{CasialEngine, CasialMission, CoordinationRequest, PerceptionId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;

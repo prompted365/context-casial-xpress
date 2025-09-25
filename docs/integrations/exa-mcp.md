@@ -25,7 +25,7 @@ casial-server start \
       "transport": ["streamable-http", "websocket"],
       "url": "http://localhost:8080/mcp",
       "config": {
-        "apiKey": "GiftFromUbiquityF2025",
+        "apiKey": "${MOP_API_KEY:-DEMO_KEY_PUBLIC}",
         "agent_role": "researcher",
         "consciousness_mode": "full"
       }
@@ -169,7 +169,7 @@ rules:
 ### Session-Level Configuration
 
 ```bash
-curl "http://localhost:8080/mcp?apiKey=GiftFromUbiquityF2025\
+curl "http://localhost:8080/mcp?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}\
 &agent_role=researcher\
 &consciousness_mode=full\
 &max_context_size=2000"
@@ -188,7 +188,7 @@ curl http://localhost:8080/debug/shim
 Enable debug mode to see which templates are being applied:
 
 ```bash
-curl "http://localhost:8080/mcp?apiKey=GiftFromUbiquityF2025&debug=true"
+curl "http://localhost:8080/mcp?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}&debug=true"
 ```
 
 ### Audit Log
@@ -220,7 +220,7 @@ All augmentations are logged with:
       "args": ["path/to/casial-mcp-client.js"],
       "env": {
         "CASIAL_URL": "http://localhost:8080/mcp",
-        "CASIAL_API_KEY": "GiftFromUbiquityF2025",
+        "CASIAL_API_KEY": "${MOP_API_KEY:-DEMO_KEY_PUBLIC}",
         "AGENT_ROLE": "researcher"
       }
     }
@@ -238,7 +238,7 @@ async def main():
     client = Client(
         "http://localhost:8080/mcp",
         config={
-            "apiKey": "GiftFromUbiquityF2025",
+            "apiKey": "${MOP_API_KEY:-DEMO_KEY_PUBLIC}",
             "agent_role": "researcher"
         }
     )

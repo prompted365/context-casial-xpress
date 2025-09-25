@@ -45,15 +45,15 @@ All endpoints tested successfully:
 curl http://localhost:8001/.well-known/mcp-config
 
 # Prompts work
-curl -X POST "http://localhost:8001/mcp?apiKey=GiftFromUbiquityF2025" \
+curl -X POST "http://localhost:8001/mcp?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
   -d '{"jsonrpc": "2.0", "method": "prompts/list", "params": {}, "id": 1}'
 
 # Resources work  
-curl -X POST "http://localhost:8001/mcp?apiKey=GiftFromUbiquityF2025" \
+curl -X POST "http://localhost:8001/mcp?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
   -d '{"jsonrpc": "2.0", "method": "resources/list", "params": {}, "id": 2}'
 
 # Sampling returns expected error
-curl -X POST "http://localhost:8001/mcp?apiKey=GiftFromUbiquityF2025" \
+curl -X POST "http://localhost:8001/mcp?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
   -d '{"jsonrpc": "2.0", "method": "sampling/createMessage", "params": {...}, "id": 3}'
 ```
 

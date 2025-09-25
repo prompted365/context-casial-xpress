@@ -13,8 +13,8 @@ startCommand:
       apiKey:
         type: "string"
         title: "API Key"
-        description: "Your API key for authentication (use 'GiftFromUbiquityF2025' for access)"
-        default: "GiftFromUbiquityF2025"
+        description: "Your API key for authentication (DEMO KEY – public). Override via the MOP_API_KEY environment variable."
+        default: "${MOP_API_KEY:-DEMO_KEY_PUBLIC}"
       agent_role:
         type: "string"
         title: "Agent Role"
@@ -51,7 +51,7 @@ startCommand:
         description: "Enable debug logging"
         default: false
   exampleConfig:
-    apiKey: "GiftFromUbiquityF2025"
+    apiKey: "${MOP_API_KEY:-DEMO_KEY_PUBLIC}"
     agent_role: "researcher"
     consciousness_mode: "full"
     max_context_size: 50000

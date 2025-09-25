@@ -80,6 +80,7 @@ base64 = "0.22"
 
 # Lazy static initialization
 lazy_static = "1.4"
+rand = "0.8"
 
 [dev-dependencies]
 tokio-test = "0.4"

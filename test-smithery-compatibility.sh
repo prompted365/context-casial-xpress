@@ -12,7 +12,7 @@ echo "=================================================="
 
 # Base URL (adjust if testing on production)
 BASE_URL="${MCP_TEST_URL:-http://localhost:8080}"
-API_KEY="GiftFromUbiquityF2025"
+API_KEY="${MOP_API_KEY:-DEMO_KEY_PUBLIC}"
 
 # Test 1: Health Check
 echo -e "\n${YELLOW}Test 1: Health Check${NC}"
@@ -76,7 +76,7 @@ fi
 
 # Test 5: Base64 Config Parameter
 echo -e "\n${YELLOW}Test 5: Base64 Config Parameter${NC}"
-config_json='{"apiKey":"GiftFromUbiquityF2025","agent_role":"researcher","consciousness_mode":"full"}'
+config_json=$(jq -n --arg key "$API_KEY" '{"apiKey":$key,"agent_role":"researcher","consciousness_mode":"full"}')
 encoded_config=$(echo -n "$config_json" | base64)
 base64_response=$(curl -s -X POST "${BASE_URL}/mcp?config=${encoded_config}" \
     -H "Content-Type: application/json" \

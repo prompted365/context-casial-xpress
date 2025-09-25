@@ -35,7 +35,7 @@ Session configuration is passed by clients when connecting to your server via qu
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `apiKey` | string | Yes | Authentication key (use "GiftFromUbiquityF2025") |
+| `apiKey` | string | Yes | Authentication key (DEMO KEY – public; override with `MOP_API_KEY`) |
 | `agent_role` | string | No | Agent role for context: researcher, analyst, monitor, watcher, orchestrator |
 | `consciousness_mode` | string | No | Consciousness level: full, partial, disabled (default: full) |
 | `max_context_size` | integer | No | Max context characters (1000-1000000, default: 100000) |
@@ -47,13 +47,13 @@ Session configuration is passed by clients when connecting to your server via qu
 
 ```bash
 # Basic connection
-https://your-server.smithery.ai/mcp?apiKey=GiftFromUbiquityF2025
+https://your-server.smithery.ai/mcp?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}
 
 # Research-focused with Exa orchestration
-https://your-server.smithery.ai/mcp?apiKey=GiftFromUbiquityF2025&agent_role=researcher&mission=exa-orchestration
+https://your-server.smithery.ai/mcp?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}&agent_role=researcher&mission=exa-orchestration
 
 # Monitoring setup with debug
-https://your-server.smithery.ai/mcp?apiKey=GiftFromUbiquityF2025&agent_role=monitor&debug=true&max_context_size=50000
+https://your-server.smithery.ai/mcp?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}&agent_role=monitor&debug=true&max_context_size=50000
 ```
 
 ## Transport Support
@@ -78,7 +78,7 @@ configSchema:
       type: "string"
       title: "API Key"
       description: "Your API key for authentication"
-      default: "GiftFromUbiquityF2025"
+      default: "${MOP_API_KEY:-DEMO_KEY_PUBLIC}"
     agent_role:
       type: "string"
       title: "Agent Role"
@@ -130,7 +130,7 @@ Balanced configuration for general use:
 
 4. **Verify**: Check deployment logs and test with:
    ```bash
-   curl "https://your-server.smithery.ai/mcp?apiKey=GiftFromUbiquityF2025" \
+   curl "https://your-server.smithery.ai/mcp?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
      -H "Accept: text/event-stream"
    ```
 
@@ -143,14 +143,14 @@ curl https://your-server.smithery.ai/health
 
 ### List Tools
 ```bash
-curl -X POST "https://your-server.smithery.ai/mcp?apiKey=GiftFromUbiquityF2025" \
+curl -X POST "https://your-server.smithery.ai/mcp?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":1}'
 ```
 
 ### Test Tool Call
 ```bash
-curl -X POST "https://your-server.smithery.ai/mcp?apiKey=GiftFromUbiquityF2025&agent_role=researcher" \
+curl -X POST "https://your-server.smithery.ai/mcp?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}&agent_role=researcher" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -185,7 +185,7 @@ These can be set in Smithery's deployment settings:
 
 Ensure you're using the correct API key in your query parameters:
 ```
-?apiKey=GiftFromUbiquityF2025
+?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}
 ```
 
 ### Transport Errors
@@ -201,7 +201,7 @@ Should show `"transport": ["streamable-http"]`
 
 Check that parameters are properly encoded in the URL:
 ```
-?apiKey=GiftFromUbiquityF2025&agent_role=researcher&consciousness_mode=full
+?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}&agent_role=researcher&consciousness_mode=full
 ```
 
 ### Tool Execution Errors

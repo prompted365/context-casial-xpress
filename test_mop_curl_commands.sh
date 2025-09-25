@@ -2,11 +2,13 @@
 
 # Meta-Orchestration Protocol (MOP) cURL Test Commands
 
+API_KEY="${MOP_API_KEY:-DEMO_KEY_PUBLIC}"
+
 echo "=== 1. Initialize Session ==="
 SESSION_ID=$(curl -X POST https://context-casial-xpress-production.up.railway.app/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
-  -H "Authorization: Bearer GiftFromUbiquityF2025" \
+  -H "Authorization: Bearer $API_KEY" \
   -d '{
     "jsonrpc": "2.0",
     "method": "initialize",

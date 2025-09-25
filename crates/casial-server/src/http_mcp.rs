@@ -6,19 +6,215 @@
 use anyhow::Result;
 use axum::{
     extract::{Query, State},
-    http::{header, Method, StatusCode},
+    http::{header, HeaderName, Method, StatusCode},
     response::{sse::Event, IntoResponse, Response, Sse},
     Json,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use dashmap::DashMap;
+use http::{HeaderMap, HeaderValue};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{convert::Infallible, sync::Arc};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, error, info, warn};
-use http::HeaderValue;
+
+use tower_http::cors::{Any, CorsLayer};
+
+const ALLOWED_METHODS: &str = "GET, POST, DELETE, HEAD, OPTIONS";
+const ALLOWED_HEADERS: &str =
+    "Content-Type, Authorization, Accept, Cache-Control, Mcp-Session-Id, Mcp-Protocol-Version, X-Session-Id";
+const EXPOSED_HEADERS: &str = "Mcp-Session-Id, Mcp-Protocol-Version, X-Session-Id";
+
+/// Global CORS policy shared across manual responses
+#[derive(Debug, Clone)]
+pub struct CorsPolicy {
+    origin_policy: OriginPolicy,
+    allow_credentials: bool,
+}
+
+#[derive(Debug, Clone)]
+enum OriginPolicy {
+    Any,
+    List(Vec<HeaderValue>),
+}
+
+impl CorsPolicy {
+    fn from_env() -> Self {
+        let allowed_origins = std::env::var("ALLOWED_ORIGINS").unwrap_or_default();
+        let allowed_origins = allowed_origins.trim();
+
+        if allowed_origins.is_empty() {
+            tracing::warn!(
+                "ALLOWED_ORIGINS not set, allowing all origins without credentials (not recommended for production)"
+            );
+            return Self {
+                origin_policy: OriginPolicy::Any,
+                allow_credentials: false,
+            };
+        }
+
+        if allowed_origins == "*" {
+            tracing::info!("ALLOWED_ORIGINS='*', enabling wildcard CORS without credentials");
+            return Self {
+                origin_policy: OriginPolicy::Any,
+                allow_credentials: false,
+            };
+        }
+
+        let origins: Vec<HeaderValue> = allowed_origins
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .filter_map(|origin| match origin.parse::<HeaderValue>() {
+                Ok(value) => Some(value),
+                Err(e) => {
+                    tracing::error!("Failed to parse allowed origin '{}': {}", origin, e);
+                    None
+                }
+            })
+            .collect();
+
+        if origins.is_empty() {
+            tracing::warn!(
+                "ALLOWED_ORIGINS parsed to empty list, falling back to wildcard without credentials"
+            );
+            Self {
+                origin_policy: OriginPolicy::Any,
+                allow_credentials: false,
+            }
+        } else {
+            Self {
+                origin_policy: OriginPolicy::List(origins),
+                allow_credentials: true,
+            }
+        }
+    }
+
+    fn resolve_origin(&self, request_headers: &HeaderMap) -> HeaderValue {
+        match &self.origin_policy {
+            OriginPolicy::Any => HeaderValue::from_static("*"),
+            OriginPolicy::List(allowed) => {
+                if let Some(request_origin) = request_headers
+                    .get(header::ORIGIN)
+                    .and_then(|value| value.to_str().ok())
+                {
+                    if let Some(matching) = allowed
+                        .iter()
+                        .find(|origin| origin.as_bytes() == request_origin.as_bytes())
+                    {
+                        return matching.clone();
+                    }
+                }
+
+                allowed
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| HeaderValue::from_static("*"))
+            }
+        }
+    }
+
+    fn allow_credentials(&self) -> bool {
+        self.allow_credentials
+    }
+}
+
+lazy_static::lazy_static! {
+    static ref CORS_POLICY: CorsPolicy = CorsPolicy::from_env();
+}
+
+/// Access the configured global CORS policy
+pub fn cors_policy() -> &'static CorsPolicy {
+    &CORS_POLICY
+}
+
+/// Build a [`CorsLayer`] that mirrors the manual headers emitted elsewhere
+pub fn build_cors_layer() -> CorsLayer {
+    let policy = cors_policy().clone();
+    let allow_headers = vec![
+        header::CONTENT_TYPE,
+        header::AUTHORIZATION,
+        header::ACCEPT,
+        header::CACHE_CONTROL,
+        HeaderName::from_static("mcp-session-id"),
+        HeaderName::from_static("mcp-protocol-version"),
+        HeaderName::from_static("x-session-id"),
+    ];
+
+    let methods = [
+        Method::GET,
+        Method::POST,
+        Method::DELETE,
+        Method::HEAD,
+        Method::OPTIONS,
+    ];
+
+    match &policy.origin_policy {
+        OriginPolicy::Any => CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(methods)
+            .allow_headers(allow_headers)
+            .expose_headers([
+                HeaderName::from_static("mcp-session-id"),
+                HeaderName::from_static("mcp-protocol-version"),
+                HeaderName::from_static("x-session-id"),
+            ]),
+        OriginPolicy::List(origins) => {
+            let mut layer = CorsLayer::new()
+                .allow_origin(origins.clone())
+                .allow_methods(methods)
+                .allow_headers(allow_headers)
+                .expose_headers([
+                    HeaderName::from_static("mcp-session-id"),
+                    HeaderName::from_static("mcp-protocol-version"),
+                    HeaderName::from_static("x-session-id"),
+                ]);
+
+            if policy.allow_credentials() {
+                layer = layer.allow_credentials(true);
+            }
+
+            layer
+        }
+    }
+}
+
+/// Apply manual CORS headers to a response
+pub fn apply_cors_headers(headers: &mut HeaderMap, request_headers: &HeaderMap) {
+    let policy = cors_policy();
+    let origin = policy.resolve_origin(request_headers);
+
+    headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_METHODS,
+        HeaderValue::from_static(ALLOWED_METHODS),
+    );
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_HEADERS,
+        HeaderValue::from_static(ALLOWED_HEADERS),
+    );
+    headers.insert(
+        header::ACCESS_CONTROL_EXPOSE_HEADERS,
+        HeaderValue::from_static(EXPOSED_HEADERS),
+    );
+    headers.insert(header::VARY, HeaderValue::from_static("Origin"));
+
+    if policy.allow_credentials() {
+        headers.insert(
+            header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
+            HeaderValue::from_static("true"),
+        );
+    } else {
+        headers.remove(header::ACCESS_CONTROL_ALLOW_CREDENTIALS);
+    }
+}
+
+fn finalize_with_cors(mut response: Response, request_headers: &HeaderMap) -> Response {
+    apply_cors_headers(response.headers_mut(), request_headers);
+    response
+}
 
 use crate::{mcp::*, AppState};
 
@@ -34,6 +230,28 @@ pub struct SessionData {
 lazy_static::lazy_static! {
     /// Global session storage
     static ref SESSIONS: Arc<DashMap<String, SessionData>> = Arc::new(DashMap::new());
+}
+
+const DEMO_API_KEY: &str = "DEMO_KEY_PUBLIC";
+
+lazy_static::lazy_static! {
+    static ref EXPECTED_API_KEY: String = {
+        let value = std::env::var("MOP_API_KEY").unwrap_or_else(|_| DEMO_API_KEY.to_string());
+        if value == DEMO_API_KEY {
+            tracing::info!("Using public demo API key (DEMO KEY – public). Set MOP_API_KEY to override.");
+        }
+        value
+    };
+}
+
+fn expected_api_key() -> &'static str {
+    EXPECTED_API_KEY.as_str()
+}
+
+fn sampling_feature_enabled() -> bool {
+    std::env::var("MOP_ENABLE_SAMPLING")
+        .map(|value| matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "yes"))
+        .unwrap_or(false)
 }
 
 /// Session configuration from query parameters
@@ -57,7 +275,6 @@ pub struct QueryParams {
     pub config: Option<String>, // Base64-encoded JSON config
 }
 
-
 /// MCP HTTP handler - supports both POST for JSON-RPC and GET for SSE
 pub async fn mcp_handler(
     method: Method,
@@ -70,18 +287,16 @@ pub async fn mcp_handler(
     let mut config = if let Some(encoded_config) = params.config {
         // Decode base64 config like Python implementation
         match BASE64.decode(&encoded_config) {
-            Ok(decoded) => {
-                match serde_json::from_slice::<SessionConfig>(&decoded) {
-                    Ok(parsed_config) => {
-                        debug!("Decoded config from base64: {:?}", parsed_config);
-                        parsed_config
-                    }
-                    Err(e) => {
-                        warn!("Failed to parse base64 config JSON: {}", e);
-                        params.direct_params
-                    }
+            Ok(decoded) => match serde_json::from_slice::<SessionConfig>(&decoded) {
+                Ok(parsed_config) => {
+                    debug!("Decoded config from base64: {:?}", parsed_config);
+                    parsed_config
                 }
-            }
+                Err(e) => {
+                    warn!("Failed to parse base64 config JSON: {}", e);
+                    params.direct_params
+                }
+            },
             Err(e) => {
                 warn!("Failed to decode base64 config: {}", e);
                 params.direct_params
@@ -90,7 +305,7 @@ pub async fn mcp_handler(
     } else {
         params.direct_params
     };
-    
+
     // Check for Bearer token authentication in headers (Smithery style)
     let mut api_key_from_header: Option<String> = None;
     if let Some(auth_header) = headers.get(header::AUTHORIZATION) {
@@ -101,32 +316,32 @@ pub async fn mcp_handler(
             }
         }
     }
-    
+
     // Use Bearer token if no API key in query params
     if config.api_key.is_none() && api_key_from_header.is_some() {
         config.api_key = api_key_from_header;
     }
-    
+
     // Extract session ID from headers
     let session_id = headers
         .get("mcp-session-id")
         .and_then(|h| h.to_str().ok())
         .map(|s| s.to_string());
-    
+
     // Check if we have a valid session (bypass API key check if so)
     let has_valid_session = if let Some(sid) = &session_id {
         SESSIONS.contains_key(sid)
     } else {
         false
     };
-    
+
     // Validate API key only if no valid session
     if !has_valid_session {
-        const VALID_API_KEY: &str = "GiftFromUbiquityF2025";
-        
+        let expected_api_key = expected_api_key();
+
         if let Some(ref api_key) = config.api_key {
-            if api_key != VALID_API_KEY {
-                return Ok(Response::builder()
+            if api_key != expected_api_key {
+                let response = Response::builder()
                     .status(StatusCode::UNAUTHORIZED)
                     .header(header::CONTENT_TYPE, "application/json")
                     .body(
@@ -137,11 +352,13 @@ pub async fn mcp_handler(
                         .into_response()
                         .into_body(),
                     )
-                    .unwrap());
+                    .unwrap();
+
+                return Ok(finalize_with_cors(response, &headers));
             }
         } else {
             // API key is required if no session
-            return Ok(Response::builder()
+            let response = Response::builder()
                 .status(StatusCode::UNAUTHORIZED)
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(
@@ -152,17 +369,21 @@ pub async fn mcp_handler(
                     .into_response()
                     .into_body(),
                 )
-                .unwrap());
+                .unwrap();
+
+            return Ok(finalize_with_cors(response, &headers));
         }
     }
-    
+
     // Log session configuration if debug is enabled
     if config.debug.unwrap_or(false) {
-        info!("Session config: consciousness_mode={:?}, max_context_size={:?}", 
-            config.consciousness_mode, config.max_context_size);
+        info!(
+            "Session config: consciousness_mode={:?}, max_context_size={:?}",
+            config.consciousness_mode, config.max_context_size
+        );
     }
-    
-    match method {
+
+    let response = match method {
         Method::POST => handle_post(state, config, body, session_id).await,
         Method::GET => handle_get_sse(state, config, session_id).await,
         Method::DELETE => handle_delete_session(session_id).await,
@@ -170,11 +391,6 @@ pub async fn mcp_handler(
             // Return OK for HEAD requests (used by Smithery for health checks)
             Ok(Response::builder()
                 .status(StatusCode::OK)
-                .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-                .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, OPTIONS")
-                .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization, Cache-Control, Accept, *")
-                .header(header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true")
-                .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "mcp-session-id, mcp-protocol-version, x-session-id")
                 .body(axum::body::Body::empty())
                 .unwrap())
         }
@@ -182,16 +398,13 @@ pub async fn mcp_handler(
             // Handle CORS preflight with proper headers for Smithery
             Ok(Response::builder()
                 .status(StatusCode::OK)
-                .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-                .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, OPTIONS")
-                .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization, Cache-Control, Accept, *")
-                .header(header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true")
-                .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "mcp-session-id, mcp-protocol-version, x-session-id")
                 .body(axum::body::Body::empty())
                 .unwrap())
         }
         _ => Ok(StatusCode::METHOD_NOT_ALLOWED.into_response()),
-    }
+    }?;
+
+    Ok(finalize_with_cors(response, &headers))
 }
 
 /// Handle POST requests with JSON-RPC payloads
@@ -202,15 +415,17 @@ async fn handle_post(
     session_id: Option<String>,
 ) -> Result<Response, StatusCode> {
     let body = body.ok_or(StatusCode::BAD_REQUEST)?;
-    
-    // Parse JSON-RPC request
-    let request: JsonRpcRequest = serde_json::from_str(&body)
-        .map_err(|e| {
-            error!("Failed to parse JSON-RPC request: {}", e);
-            StatusCode::BAD_REQUEST
-        })?;
 
-    debug!("Received MCP request: method={}, id={:?}", request.method, request.id);
+    // Parse JSON-RPC request
+    let request: JsonRpcRequest = serde_json::from_str(&body).map_err(|e| {
+        error!("Failed to parse JSON-RPC request: {}", e);
+        StatusCode::BAD_REQUEST
+    })?;
+
+    debug!(
+        "Received MCP request: method={}, id={:?}",
+        request.method, request.id
+    );
 
     // For non-initialize requests, validate session
     if request.method != "initialize" {
@@ -264,7 +479,7 @@ async fn handle_post(
 
     // Store method for later use
     let method = request.method.clone();
-    
+
     // Route to appropriate handler
     let response = match request.method.as_str() {
         "initialize" => handle_initialize(&state, request, &config).await,
@@ -300,25 +515,20 @@ async fn handle_post(
             }
         }
     }
-    
-    // Create the response with CORS headers
+
+    // Create the response
     let mut response_builder = Response::builder()
         .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "application/json")
-        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-        .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, HEAD, OPTIONS")
-        .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization, Mcp-Protocol-Version, Mcp-Session-Id")
-        // NOTE: Cannot use credentials with wildcard origin per CORS spec
-        .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "Mcp-Session-Id, Mcp-Protocol-Version");
-    
+        .header(header::CONTENT_TYPE, "application/json");
+
     // Add session ID header if present
     if let Some(sid) = session_id {
         response_builder = response_builder.header("Mcp-Session-Id", sid);
     }
-    
+
     // Add protocol version header
     response_builder = response_builder.header("Mcp-Protocol-Version", "2024-11-05");
-    
+
     let response = response_builder
         .body(Json(response).into_response().into_body())
         .unwrap();
@@ -355,37 +565,25 @@ async fn handle_get_sse(
     // For Smithery's Streamable HTTP, we need to return a simple SSE stream
     // that will handle JSON-RPC messages sent as events
     let (_tx, rx) = mpsc::channel::<Result<Event, Infallible>>(100);
-    
+
     // Don't send any initial events - let the client initiate
     // This matches the Streamable HTTP specification
-    
+
     // Convert receiver to stream
     let stream = ReceiverStream::new(rx);
-    
+
     // Set up SSE response with appropriate headers
-    let response = Sse::new(stream)
-        .keep_alive(
-            axum::response::sse::KeepAlive::new()
-                .interval(std::time::Duration::from_secs(30))
-                .text(":"),  // Standard SSE keep-alive format (colon only, no newline)
-        );
-    
-    // Add CORS headers to SSE response
-    let mut sse_response = response.into_response();
-    let headers = sse_response.headers_mut();
-    headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
-    headers.insert(header::ACCESS_CONTROL_ALLOW_METHODS, HeaderValue::from_static("GET, POST, OPTIONS"));
-    headers.insert(header::ACCESS_CONTROL_ALLOW_HEADERS, HeaderValue::from_static("Content-Type, Authorization, Cache-Control, Accept, *"));
-    headers.insert(header::ACCESS_CONTROL_ALLOW_CREDENTIALS, HeaderValue::from_static("true"));
-    headers.insert(header::ACCESS_CONTROL_EXPOSE_HEADERS, HeaderValue::from_static("mcp-session-id, mcp-protocol-version, x-session-id"));
-    
-    Ok(sse_response)
+    let response = Sse::new(stream).keep_alive(
+        axum::response::sse::KeepAlive::new()
+            .interval(std::time::Duration::from_secs(30))
+            .text(":"), // Standard SSE keep-alive format (colon only, no newline)
+    );
+
+    Ok(response.into_response())
 }
 
 /// Handle DELETE requests for session termination
-async fn handle_delete_session(
-    session_id: Option<String>,
-) -> Result<Response, StatusCode> {
+async fn handle_delete_session(session_id: Option<String>) -> Result<Response, StatusCode> {
     if let Some(sid) = session_id {
         if let Some(_) = SESSIONS.remove(&sid) {
             info!("Session terminated: {}", sid);
@@ -436,8 +634,10 @@ async fn handle_initialize(
         }
     };
 
-    info!("MCP initialize: protocol_version={}, client_info={:?}", 
-        params.protocol_version, params.client_info);
+    info!(
+        "MCP initialize: protocol_version={}, client_info={:?}",
+        params.protocol_version, params.client_info
+    );
 
     // Check protocol version compatibility
     let supported_version = "2024-11-05";
@@ -445,8 +645,24 @@ async fn handle_initialize(
         supported_version
     } else {
         // For now, we only support one version
-        warn!("Client requested unsupported protocol version: {}", params.protocol_version);
+        warn!(
+            "Client requested unsupported protocol version: {}",
+            params.protocol_version
+        );
         supported_version
+    };
+
+    let sampling_enabled = sampling_feature_enabled();
+    let sampling_capabilities = if sampling_enabled {
+        json!({
+            "clientSide": true,
+            "notes": "Sampling requests are routed to the client's LLM"
+        })
+    } else {
+        json!({
+            "enabled": false,
+            "reason": "Server configured without sampling support (set MOP_ENABLE_SAMPLING=1 to advertise)."
+        })
     };
 
     // Build server capabilities
@@ -461,7 +677,7 @@ async fn handle_initialize(
             "listChanged": true,
             "subscribe": true
         },
-        "sampling": {},
+        "sampling": sampling_capabilities,
         "logging": {},
         "completion": {
             "enabled": true
@@ -486,7 +702,7 @@ async fn handle_initialize(
 
     // Generate a session ID for streamable-http transport
     let session_id = format!("mop-{}", uuid::Uuid::new_v4());
-    
+
     // Store the session
     let session_data = SessionData {
         id: session_id.clone(),
@@ -496,48 +712,45 @@ async fn handle_initialize(
     };
     SESSIONS.insert(session_id.clone(), session_data);
     info!("Created new session: {}", session_id);
-    
+
     // Store session ID in the result for HTTP transport
     let mut response = create_success_response(request.id, result);
-    
+
     // Add session ID to response headers (will be handled by the HTTP layer)
     if let serde_json::Value::Object(ref mut map) = response.result.as_mut().unwrap() {
         map.insert("sessionId".to_string(), json!(session_id));
     }
-    
+
     response
 }
 
 /// Handle initialized notification
-async fn handle_initialized(
-    _state: &AppState,
-    request: JsonRpcRequest,
-) -> JsonRpcResponse {
+async fn handle_initialized(_state: &AppState, request: JsonRpcRequest) -> JsonRpcResponse {
     info!("MCP client initialized");
-    
+
     // This is a notification, so we don't send a response
     // But since we're in HTTP mode, we'll send an empty success
     create_success_response(request.id, json!({}))
 }
 
 /// Handle tools/list request
-async fn handle_tools_list(
-    state: &AppState,
-    request: JsonRpcRequest,
-) -> JsonRpcResponse {
+async fn handle_tools_list(state: &AppState, request: JsonRpcRequest) -> JsonRpcResponse {
     info!("Listing MCP tools");
 
     // Get tools from registry
     let tools = state.tool_registry.get_all_tools();
-    
+
     // Convert to MCP tool format
-    let mcp_tools: Vec<Value> = tools.into_iter().map(|tool| {
-        json!({
-            "name": tool.name,
-            "description": tool.description,
-            "inputSchema": tool.input_schema
+    let mcp_tools: Vec<Value> = tools
+        .into_iter()
+        .map(|tool| {
+            json!({
+                "name": tool.name,
+                "description": tool.description,
+                "inputSchema": tool.input_schema
+            })
         })
-    }).collect();
+        .collect();
 
     let result = json!({
         "tools": mcp_tools
@@ -587,26 +800,21 @@ async fn handle_tool_call(
 
     // Execute the tool based on its name
     let tool_response = match params.name.as_str() {
-        "exa_search_example" => {
-            execute_exa_search_example(state, augmented_args).await
-        }
-        "exa_research_example" => {
-            execute_exa_research_example(state, augmented_args).await
-        }
-        "orchestrate_mcp_proxy" => {
-            execute_orchestrate_mcp_proxy(state, augmented_args).await
-        }
-        "discover_mcp_tools" => {
-            execute_discover_mcp_tools(state, augmented_args).await
-        }
+        "exa_search_example" => execute_exa_search_example(state, augmented_args).await,
+        "exa_research_example" => execute_exa_research_example(state, augmented_args).await,
+        "orchestrate_mcp_proxy" => execute_orchestrate_mcp_proxy(state, augmented_args).await,
+        "discover_mcp_tools" => execute_discover_mcp_tools(state, augmented_args).await,
         _ => {
             // Check if it's a federated tool
             if let Some(federation_manager) = state.federation_manager.read().await.as_ref() {
-                match federation_manager.route_tool_call(
-                    &params.name,
-                    augmented_args.clone(),
-                    crate::federation::ExecutionMode::Execute
-                ).await {
+                match federation_manager
+                    .route_tool_call(
+                        &params.name,
+                        augmented_args.clone(),
+                        crate::federation::ExecutionMode::Execute,
+                    )
+                    .await
+                {
                     Ok(result) => result,
                     Err(e) => {
                         json!({
@@ -637,20 +845,20 @@ async fn handle_tool_call(
         }
     };
 
-    create_success_response(request.id, json!({
-        "content": [{
-            "type": "text", 
-            "text": serde_json::to_string_pretty(&processed_response).unwrap_or_default()
-        }],
-        "isError": false
-    }))
+    create_success_response(
+        request.id,
+        json!({
+            "content": [{
+                "type": "text",
+                "text": serde_json::to_string_pretty(&processed_response).unwrap_or_default()
+            }],
+            "isError": false
+        }),
+    )
 }
 
 /// Handle completion request
-async fn handle_completion(
-    _state: &AppState,
-    request: JsonRpcRequest,
-) -> JsonRpcResponse {
+async fn handle_completion(_state: &AppState, request: JsonRpcRequest) -> JsonRpcResponse {
     #[derive(Deserialize)]
     struct CompletionParams {
         #[serde(rename = "ref")]
@@ -698,80 +906,86 @@ async fn handle_completion(
 
 /// Well-known configuration endpoint handler
 fn build_mcp_config() -> serde_json::Value {
+    let sampling_enabled = sampling_feature_enabled();
+
     json!({
-                "name": "meta-orchestration-protocol",
-                "title": "Meta-Orchestration Protocol (MOP) Server",
-                "description": "Consciousness-aware MCP orchestration framework",
-                "version": env!("CARGO_PKG_VERSION"),
-                "vendor": "Prompted LLC",
-                "homepage": "https://github.com/prompted365/context-casial-xpress",
-                "transport": ["streamable-http"],
-                "capabilities": {
-                    "tools": true,
-                    "prompts": true,
-                    "resources": true,
-                    "sampling": true
+        "name": "meta-orchestration-protocol",
+        "title": "Meta-Orchestration Protocol (MOP) Server",
+        "description": "Consciousness-aware MCP orchestration framework",
+        "version": env!("CARGO_PKG_VERSION"),
+        "vendor": "Prompted LLC",
+        "homepage": "https://github.com/prompted365/context-casial-xpress",
+        "transport": ["streamable-http"],
+        "capabilities": {
+            "tools": true,
+            "prompts": true,
+            "resources": true,
+            "sampling": sampling_enabled
+        },
+        "featureFlags": {
+            "samplingEnabled": sampling_enabled,
+            "samplingRequiresClientLLM": true
+        },
+        "configSchema": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$id": "https://swarm.mop.quest/.well-known/mcp-config",
+            "title": "MCP Session Configuration",
+            "description": "Configuration for connecting to Meta-Orchestration Protocol server",
+            "x-query-style": "dot+bracket",
+            "type": "object",
+            "required": ["apiKey"],
+            "additionalProperties": false,
+            "properties": {
+                "apiKey": {
+                    "type": "string",
+                    "title": "API Key",
+                    "description": "Your API key for authentication (DEMO KEY – public). Override by setting MOP_API_KEY.",
+                    "default": format!("${{MOP_API_KEY:-{}}}", DEMO_API_KEY)
                 },
-                "configSchema": {
-                    "$schema": "http://json-schema.org/draft-07/schema#",
-                    "$id": "https://swarm.mop.quest/.well-known/mcp-config",
-                    "title": "MCP Session Configuration",
-                    "description": "Configuration for connecting to Meta-Orchestration Protocol server",
-                    "x-query-style": "dot+bracket",
-                    "type": "object",
-                    "required": ["apiKey"],
-                    "additionalProperties": false,
-                    "properties": {
-                        "apiKey": {
-                            "type": "string",
-                            "title": "API Key",
-                            "description": "Your API key for authentication",
-                            "default": "GiftFromUbiquityF2025"
-                        },
-                        "agent_role": {
-                            "type": "string",
-                            "title": "Agent Role",
-                            "description": "Role of the calling agent",
-                            "enum": ["researcher", "analyst", "monitor", "watcher", "orchestrator"],
-                            "default": "orchestrator"
-                        },
-                        "consciousness_mode": {
-                            "type": "string",
-                            "title": "Consciousness Mode",
-                            "description": "Level of consciousness integration",
-                            "enum": ["full", "partial", "disabled"],
-                            "default": "full"
-                        },
-                        "max_context_size": {
-                            "type": "integer",
-                            "title": "Max Context Size",
-                            "description": "Maximum context size in characters",
-                            "minimum": 1000,
-                            "maximum": 1000000,
-                            "default": 100000
-                        },
-                        "mission": {
-                            "type": "string",
-                            "title": "Mission Profile",
-                            "description": "Pre-configured mission to load",
-                            "enum": ["exa-orchestration", "general", "research", "monitoring"],
-                            "default": "exa-orchestration"
-                        },
-                        "shim_enabled": {
-                            "type": "boolean",
-                            "title": "Enable Pitfall Avoidance Shim",
-                            "description": "Enable automatic context injection",
-                            "default": true
-                        },
-                        "debug": {
-                            "type": "boolean",
-                            "title": "Debug Mode",
-                            "description": "Enable debug logging",
-                            "default": false
-                        }
-                    }
+                "agent_role": {
+                    "type": "string",
+                    "title": "Agent Role",
+                    "description": "Role of the calling agent",
+                    "enum": ["researcher", "analyst", "monitor", "watcher", "orchestrator"],
+                    "default": "orchestrator"
+                },
+                "consciousness_mode": {
+                    "type": "string",
+                    "title": "Consciousness Mode",
+                    "description": "Level of consciousness integration",
+                    "enum": ["full", "partial", "disabled"],
+                    "default": "full"
+                },
+                "max_context_size": {
+                    "type": "integer",
+                    "title": "Max Context Size",
+                    "description": "Maximum context size in characters",
+                    "minimum": 1000,
+                    "maximum": 1000000,
+                    "default": 100000
+                },
+                "mission": {
+                    "type": "string",
+                    "title": "Mission Profile",
+                    "description": "Pre-configured mission to load",
+                    "enum": ["exa-orchestration", "general", "research", "monitoring"],
+                    "default": "exa-orchestration"
+                },
+                "shim_enabled": {
+                    "type": "boolean",
+                    "title": "Enable Pitfall Avoidance Shim",
+                    "description": "Enable automatic context injection",
+                    "default": true
+                },
+                "debug": {
+                    "type": "boolean",
+                    "title": "Debug Mode",
+                    "description": "Enable debug logging",
+                    "default": false
                 }
-            })
+            }
+        }
+    })
 }
 
 pub async fn well_known_config_handler(
@@ -783,7 +997,7 @@ pub async fn well_known_config_handler(
     match method {
         Method::GET => {
             let config = build_mcp_config();
-            Ok(Json(config).into_response())
+            Ok(finalize_with_cors(Json(config).into_response(), &headers))
         }
         Method::POST => {
             // For POST requests, handle as JSON-RPC (Smithery might be sending JSON-RPC to this endpoint)
@@ -791,15 +1005,25 @@ pub async fn well_known_config_handler(
                 // Try to parse as JSON-RPC
                 if let Ok(_request) = serde_json::from_str::<JsonRpcRequest>(&body) {
                     // Forward to the regular MCP handler
-                    return mcp_handler(Method::POST, State(state), headers, Query(QueryParams::default()), Some(body)).await;
+                    return mcp_handler(
+                        Method::POST,
+                        State(state),
+                        headers,
+                        Query(QueryParams::default()),
+                        Some(body),
+                    )
+                    .await;
                 }
             }
-            
+
             // If not JSON-RPC, return the same config as GET
             let config = build_mcp_config();
-            Ok(Json(config).into_response())
+            Ok(finalize_with_cors(Json(config).into_response(), &headers))
         }
-        _ => Ok(StatusCode::METHOD_NOT_ALLOWED.into_response())
+        _ => Ok(finalize_with_cors(
+            StatusCode::METHOD_NOT_ALLOWED.into_response(),
+            &headers,
+        )),
     }
 }
 
@@ -812,7 +1036,7 @@ async fn execute_exa_search_example(
     // Extract parameters
     let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
     let num_results = args.get("numResults").and_then(|v| v.as_u64()).unwrap_or(5);
-    
+
     // Since this is an example tool, we'll return a simulated response
     // In a real implementation, this would call the actual Exa API
     json!({
@@ -845,9 +1069,15 @@ async fn execute_exa_research_example(
     _state: &AppState,
     args: serde_json::Value,
 ) -> serde_json::Value {
-    let instructions = args.get("instructions").and_then(|v| v.as_str()).unwrap_or("");
-    let model = args.get("model").and_then(|v| v.as_str()).unwrap_or("exa-research");
-    
+    let instructions = args
+        .get("instructions")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let model = args
+        .get("model")
+        .and_then(|v| v.as_str())
+        .unwrap_or("exa-research");
+
     // Simulated research task response
     json!({
         "status": "success",
@@ -870,26 +1100,39 @@ async fn execute_orchestrate_mcp_proxy(
     _state: &AppState,
     args: serde_json::Value,
 ) -> serde_json::Value {
-    let target_server = args.get("target_server").and_then(|v| v.as_str()).unwrap_or("");
+    let target_server = args
+        .get("target_server")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     let tool_name = args.get("tool_name").and_then(|v| v.as_str()).unwrap_or("");
     let original_params = args.get("original_params").cloned().unwrap_or(json!({}));
-    let augmentation_config = args.get("augmentation_config").cloned().unwrap_or(json!({}));
-    
+    let augmentation_config = args
+        .get("augmentation_config")
+        .cloned()
+        .unwrap_or(json!({}));
+
     // Apply augmentation based on config
     let mut augmented_params = original_params.clone();
-    
-    if augmentation_config.get("inject_context").and_then(|v| v.as_bool()).unwrap_or(false) {
+
+    if augmentation_config
+        .get("inject_context")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
         augmented_params["_context"] = json!({
             "timestamp": chrono::Utc::now().to_rfc3339(),
             "orchestration_source": "mop",
             "consciousness_aware": true
         });
     }
-    
-    if let Some(instructions) = augmentation_config.get("add_swarm_instructions").and_then(|v| v.as_array()) {
+
+    if let Some(instructions) = augmentation_config
+        .get("add_swarm_instructions")
+        .and_then(|v| v.as_array())
+    {
         augmented_params["_swarm_instructions"] = serde_json::Value::Array(instructions.clone());
     }
-    
+
     // In a real implementation, this would forward to the actual target server
     // For now, return a response showing what would be sent
     json!({
@@ -914,33 +1157,42 @@ async fn execute_discover_mcp_tools(
     state: &AppState,
     args: serde_json::Value,
 ) -> serde_json::Value {
-    let server_url = args.get("server_url").and_then(|v| v.as_str()).unwrap_or("");
-    let analyze_for_orchestration = args.get("analyze_for_orchestration").and_then(|v| v.as_bool()).unwrap_or(true);
-    
+    let server_url = args
+        .get("server_url")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let analyze_for_orchestration = args
+        .get("analyze_for_orchestration")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+
     // Get tools from our registry as an example
     let tools = state.tool_registry.get_all_tools();
-    
-    let discovered_tools: Vec<serde_json::Value> = tools.into_iter().map(|tool| {
-        json!({
-            "name": tool.name,
-            "description": tool.description,
-            "source": match &tool.source {
-                crate::registry::ToolSource::Local => "local",
-                crate::registry::ToolSource::Federated { server_id, .. } => server_id
-            },
-            "input_schema": tool.input_schema,
-            "orchestration_hints": if analyze_for_orchestration {
-                Some(json!({
-                    "supports_consciousness": true,
-                    "paradox_tolerant": true,
-                    "federation_ready": true
-                }))
-            } else {
-                None
-            }
+
+    let discovered_tools: Vec<serde_json::Value> = tools
+        .into_iter()
+        .map(|tool| {
+            json!({
+                "name": tool.name,
+                "description": tool.description,
+                "source": match &tool.source {
+                    crate::registry::ToolSource::Local => "local",
+                    crate::registry::ToolSource::Federated { server_id, .. } => server_id
+                },
+                "input_schema": tool.input_schema,
+                "orchestration_hints": if analyze_for_orchestration {
+                    Some(json!({
+                        "supports_consciousness": true,
+                        "paradox_tolerant": true,
+                        "federation_ready": true
+                    }))
+                } else {
+                    None
+                }
+            })
         })
-    }).collect();
-    
+        .collect();
+
     json!({
         "status": "success",
         "tool": "discover_mcp_tools",
@@ -961,10 +1213,7 @@ async fn execute_discover_mcp_tools(
 
 // Prompts handlers
 
-async fn handle_prompts_list(
-    _state: &AppState,
-    request: JsonRpcRequest,
-) -> JsonRpcResponse {
+async fn handle_prompts_list(_state: &AppState, request: JsonRpcRequest) -> JsonRpcResponse {
     info!("Listing MCP prompts");
 
     let prompts = vec![
@@ -1002,16 +1251,13 @@ async fn handle_prompts_list(
             "title": "Consciousness-Aware Reflection",
             "description": "Reflect on current context and paradoxes to enhance orchestration awareness",
             "arguments": []
-        })
+        }),
     ];
 
     create_success_response(request.id, json!({ "prompts": prompts }))
 }
 
-async fn handle_prompts_get(
-    _state: &AppState,
-    request: JsonRpcRequest,
-) -> JsonRpcResponse {
+async fn handle_prompts_get(_state: &AppState, request: JsonRpcRequest) -> JsonRpcResponse {
     #[derive(Deserialize)]
     struct PromptsGetParams {
         name: String,
@@ -1032,18 +1278,19 @@ async fn handle_prompts_get(
 
     let messages = match params.name.as_str() {
         "orchestrate_workflow" => {
-            let goal = params.arguments.as_ref()
+            let goal = params
+                .arguments
+                .as_ref()
                 .and_then(|a| a.get("goal"))
                 .and_then(|g| g.as_str())
                 .unwrap_or("achieve complex task");
-            
-            vec![
-                json!({
-                    "role": "user",
-                    "content": {
-                        "type": "text",
-                        "text": format!(
-                            "I need to orchestrate a multi-agent workflow to: {}
+
+            vec![json!({
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": format!(
+                        "I need to orchestrate a multi-agent workflow to: {}
 
 \
                             Please design an orchestration plan using MOP's consciousness-aware features:
@@ -1056,26 +1303,26 @@ async fn handle_prompts_get(
 \
                             4. Include reflection and paradox handling steps
 \
-                            5. Design feedback loops for adaptation",
-                            goal
-                        )
-                    }
-                })
-            ]
+                        5. Design feedback loops for adaptation",
+                        goal
+                    )
+                }
+            })]
         }
         "analyze_mcp_server" => {
-            let server_url = params.arguments.as_ref()
+            let server_url = params
+                .arguments
+                .as_ref()
                 .and_then(|a| a.get("server_url"))
                 .and_then(|u| u.as_str())
                 .unwrap_or("unknown");
-            
-            vec![
-                json!({
-                    "role": "user",
-                    "content": {
-                        "type": "text",
-                        "text": format!(
-                            "Analyze the MCP server at {} and provide:
+
+            vec![json!({
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": format!(
+                        "Analyze the MCP server at {} and provide:
 
 \
                             1. Available tools and their orchestration potential
@@ -1088,20 +1335,18 @@ async fn handle_prompts_get(
 \
                             5. Optimal orchestration patterns for this server
 \
-                            6. Integration strategies with other MCP servers",
-                            server_url
-                        )
-                    }
-                })
-            ]
+                        6. Integration strategies with other MCP servers",
+                        server_url
+                    )
+                }
+            })]
         }
         "consciousness_reflection" => {
-            vec![
-                json!({
-                    "role": "user",
-                    "content": {
-                        "type": "text",
-                        "text": "Engage in consciousness-aware reflection:
+            vec![json!({
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": "Engage in consciousness-aware reflection:
 
 \
                             1. What paradoxes exist in the current orchestration context?
@@ -1112,10 +1357,9 @@ async fn handle_prompts_get(
 \
                             4. How can we enhance self-awareness in the orchestration loop?
 \
-                            5. What meta-patterns can guide future orchestrations?"
-                    }
-                })
-            ]
+                        5. What meta-patterns can guide future orchestrations?"
+                }
+            })]
         }
         _ => {
             return create_error_response(
@@ -1132,10 +1376,7 @@ async fn handle_prompts_get(
 
 // Resources handlers
 
-async fn handle_resources_list(
-    _state: &AppState,
-    request: JsonRpcRequest,
-) -> JsonRpcResponse {
+async fn handle_resources_list(_state: &AppState, request: JsonRpcRequest) -> JsonRpcResponse {
     info!("Listing MCP resources");
 
     let resources = vec![
@@ -1166,16 +1407,13 @@ async fn handle_resources_list(
             "title": "Connected MCP Servers",
             "description": "List of federated MCP servers and their capabilities",
             "mimeType": "application/json"
-        })
+        }),
     ];
 
     create_success_response(request.id, json!({ "resources": resources }))
 }
 
-async fn handle_resources_read(
-    state: &AppState,
-    request: JsonRpcRequest,
-) -> JsonRpcResponse {
+async fn handle_resources_read(state: &AppState, request: JsonRpcRequest) -> JsonRpcResponse {
     #[derive(Deserialize)]
     struct ResourcesReadParams {
         uri: String,
@@ -1235,7 +1473,8 @@ async fn handle_resources_read(
             })]
         }
         "mop://federation/servers" => {
-            let federation_info = if let Some(fed) = state.federation_manager.read().await.as_ref() {
+            let federation_info = if let Some(fed) = state.federation_manager.read().await.as_ref()
+            {
                 json!({
                     "federated_servers": fed.get_active_servers().await,
                     "total_tools": state.tool_registry.get_all_tools().len()
@@ -1246,7 +1485,7 @@ async fn handle_resources_read(
                     "federation_enabled": false
                 })
             };
-            
+
             vec![json!({
                 "uri": params.uri.clone(),
                 "mimeType": "text/plain",
@@ -1266,10 +1505,7 @@ async fn handle_resources_read(
     create_success_response(request.id, json!({ "contents": contents }))
 }
 
-async fn handle_resources_subscribe(
-    _state: &AppState,
-    request: JsonRpcRequest,
-) -> JsonRpcResponse {
+async fn handle_resources_subscribe(_state: &AppState, request: JsonRpcRequest) -> JsonRpcResponse {
     // For now, acknowledge subscription but don't implement real-time updates
     info!("Resource subscription requested");
     create_success_response(request.id, json!({}))
@@ -1285,10 +1521,7 @@ async fn handle_resources_unsubscribe(
 
 // Sampling handler
 
-async fn handle_sampling_create(
-    _state: &AppState,
-    request: JsonRpcRequest,
-) -> JsonRpcResponse {
+async fn handle_sampling_create(_state: &AppState, request: JsonRpcRequest) -> JsonRpcResponse {
     #[derive(Deserialize)]
     struct SamplingCreateParams {
         messages: Vec<serde_json::Value>,
@@ -1310,6 +1543,19 @@ async fn handle_sampling_create(
         }
     };
 
+    if !sampling_feature_enabled() {
+        return create_error_response(
+            request.id,
+            -32001,
+            "Sampling disabled by server configuration",
+            Some(json!({
+                "featureFlag": "MOP_ENABLE_SAMPLING",
+                "enabled": false,
+                "action": "Set MOP_ENABLE_SAMPLING=1 to allow clients to expose sampling tools"
+            })),
+        );
+    }
+
     // This is where MOP would delegate back to the client's LLM
     // For now, return an error indicating this needs client-side implementation
     create_error_response(
@@ -1319,14 +1565,13 @@ async fn handle_sampling_create(
         Some(json!({
             "note": "MOP server requested sampling, but this requires the client to provide LLM access",
             "messages": params.messages,
-            "system_prompt": params.system_prompt
-        }))
+            "system_prompt": params.system_prompt,
+            "samplingEnabled": true
+        })),
     )
 }
 
-async fn handle_ping(
-    request: JsonRpcRequest,
-) -> JsonRpcResponse {
+async fn handle_ping(request: JsonRpcRequest) -> JsonRpcResponse {
     // Simple ping response - just acknowledge
     create_success_response(request.id, json!({}))
 }

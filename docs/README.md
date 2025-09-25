@@ -378,6 +378,7 @@ graph TD
 - **HTTP/SSE MCP**: `http://localhost:8000/mcp` (Smithery.ai compatible)
 - **MCP Config**: `http://localhost:8000/.well-known/mcp-config`
 - **Shim Config**: `http://localhost:8000/debug/shim`
+- **Sampling Contract**: see [docs/SAMPLING_CONTRACT.md](SAMPLING_CONTRACT.md) for client responsibilities and the `MOP_ENABLE_SAMPLING` feature flag.
 
 ### Orchestration Tools
 

@@ -5,22 +5,23 @@
 
 use anyhow::Result;
 use axum::{
-    extract::{ws::WebSocketUpgrade, Query, State},
-    http::Method,
-    response::IntoResponse,
+    extract::{ws::WebSocketUpgrade, Query, Request as AxumRequest, State},
+    http::{self, header, HeaderValue, Method, StatusCode},
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
     routing::get,
-    Router,
+    Json, Router,
 };
 use clap::{Parser, Subcommand};
 use dashmap::DashMap;
-use tokio::sync::RwLock;
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::signal;
-use tower_http::{
-    trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer},
-};
+use tokio::sync::RwLock;
+use tower_http::trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer};
 use tracing::{info, warn, Level};
 use uuid::Uuid;
+
+use serde_json::json;
 
 mod client;
 mod config;
@@ -38,9 +39,9 @@ use config::ServerConfig;
 use federation::McpFederationManager;
 use metrics::MetricsCollector;
 use mission::MissionManager;
+use pitfall_shim::{PitfallAvoidanceShim, ShimConfig};
 use registry::ToolRegistry;
 use websocket::WebSocketHandler;
-use pitfall_shim::{PitfallAvoidanceShim, ShimConfig};
 
 /// Meta-Orchestration Protocol (MOP): Consciousness-aware context coordination for AI systems
 #[derive(Parser)]
@@ -125,7 +126,8 @@ impl AppState {
 
         // Initialize federation manager if enabled
         let federation_manager = if config.federation.enabled {
-            let manager = McpFederationManager::new(config.federation.clone(), Arc::clone(&tool_registry));
+            let manager =
+                McpFederationManager::new(config.federation.clone(), Arc::clone(&tool_registry));
             Some(manager)
         } else {
             None
@@ -158,7 +160,19 @@ async fn main() -> Result<()> {
             no_shim,
             shim_extend,
             shim_config,
-        } => start_server(config, port, mission, debug, shim, no_shim, shim_extend, shim_config).await,
+        } => {
+            start_server(
+                config,
+                port,
+                mission,
+                debug,
+                shim,
+                no_shim,
+                shim_extend,
+                shim_config,
+            )
+            .await
+        }
         Commands::Validate { mission_file } => validate_mission(mission_file).await,
         Commands::Status { endpoint } => show_status(endpoint).await,
     }
@@ -210,7 +224,10 @@ async fn start_server(
     let shim_enabled = shim && !no_shim;
     let shim = if let Some(shim_config_path) = shim_config_path {
         // Load custom shim configuration
-        info!("📄 Loading custom shim configuration: {}", shim_config_path.display());
+        info!(
+            "📄 Loading custom shim configuration: {}",
+            shim_config_path.display()
+        );
         let shim_config_str = tokio::fs::read_to_string(&shim_config_path).await?;
         let shim_config: ShimConfig = serde_json::from_str(&shim_config_str)?;
         PitfallAvoidanceShim::new(shim_config)
@@ -221,9 +238,13 @@ async fn start_server(
 
     info!(
         "🛡️  Pitfall avoidance shim: {}",
-        if shim.is_enabled() { "✅ Enabled" } else { "❌ Disabled" }
+        if shim.is_enabled() {
+            "✅ Enabled"
+        } else {
+            "❌ Disabled"
+        }
     );
-    
+
     if shim.is_enabled() {
         info!("    Current date injection: ✅");
         info!("    Timestamp returns: ✅");
@@ -240,7 +261,10 @@ async fn start_server(
         match load_mission(&state, mission_path).await {
             Ok(_) => info!("✅ Mission loaded successfully"),
             Err(e) => {
-                warn!("⚠️  Failed to load mission: {}. Server will continue without mission.", e);
+                warn!(
+                    "⚠️  Failed to load mission: {}. Server will continue without mission.",
+                    e
+                );
                 // Continue without mission - server can still function
             }
         }
@@ -264,7 +288,10 @@ async fn start_server(
     info!("🌐 Server listening on {}", addr);
     info!("    WebSocket endpoint: ws://{}/ws", addr);
     info!("    HTTP/SSE MCP endpoint: http://{}/mcp", addr);
-    info!("    MCP config endpoint: http://{}/.well-known/mcp-config", addr);
+    info!(
+        "    MCP config endpoint: http://{}/.well-known/mcp-config",
+        addr
+    );
     info!("    Metrics endpoint: http://{}/metrics", addr);
     info!("    Health endpoint: http://{}/health", addr);
 
@@ -376,105 +403,108 @@ async fn start_metrics_collection(state: &AppState) -> Result<()> {
 
 /// Create CORS layer with configurable allow-list
 fn create_cors_layer() -> tower_http::cors::CorsLayer {
-    use http::{header, HeaderName, Method};
-    use tower_http::cors::{Any, CorsLayer};
+    http_mcp::build_cors_layer()
+}
 
-    // Read allowed origins from environment
-    let allowed_origins = std::env::var("ALLOWED_ORIGINS").unwrap_or_default();
-    let allowed_origins = allowed_origins.trim();
+async fn require_admin_token(req: AxumRequest, next: Next) -> Result<Response, StatusCode> {
+    let expected = std::env::var("MOP_ADMIN_TOKEN").unwrap_or_default();
 
-    // Case 1: Empty or unset -> permissive (log warning for prod)
-    if allowed_origins.is_empty() {
-        tracing::warn!(
-            "ALLOWED_ORIGINS not set, using permissive CORS (not recommended for production)"
+    if expected.is_empty() {
+        tracing::warn!("MOP_ADMIN_TOKEN not set; denying access to /debug routes");
+        let mut response = (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "error": "admin_token_unset",
+                "message": "Set MOP_ADMIN_TOKEN to enable /debug endpoints"
+            })),
+        )
+            .into_response();
+        response.headers_mut().insert(
+            header::WWW_AUTHENTICATE,
+            HeaderValue::from_static("Bearer realm=\"mop-debug\""),
         );
-        return CorsLayer::permissive();
+        return Ok(response);
     }
 
-    // Case 2: Wildcard (*) -> use Any without credentials
-    if allowed_origins == "*" {
-        tracing::info!("ALLOWED_ORIGINS='*', allowing all origins without credentials");
-        return CorsLayer::new()
-            .allow_origin(Any)
-            .allow_headers(vec![
-                header::CONTENT_TYPE,
-                header::AUTHORIZATION,
-                header::ACCEPT,
-                HeaderName::from_static("x-session-id"),
-                HeaderName::from_static("mcp-session-id"),
-                HeaderName::from_static("mcp-protocol-version"),
-            ])
-            .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-            .expose_headers([
-                HeaderName::from_static("mcp-session-id"),
-                HeaderName::from_static("mcp-protocol-version"),
-                HeaderName::from_static("x-session-id"),
-            ]);
-            // Note: Cannot use allow_credentials(true) with wildcard origin
-    }
+    let mut authorized = req
+        .headers()
+        .get("Mop-Admin-Token")
+        .and_then(|value| value.to_str().ok())
+        .map(|token| token == expected)
+        .unwrap_or(false);
 
-    // Case 3: Comma-separated origins -> parse into list
-    tracing::info!("Configuring CORS with allowed origins: {}", allowed_origins);
-
-    let origins: Result<Vec<_>, _> = allowed_origins
-        .split(',')
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(|s| s.parse::<header::HeaderValue>().map_err(|e| e.to_string()))
-        .collect();
-
-    match origins {
-        Ok(origin_list) if !origin_list.is_empty() => {
-            tracing::info!("Successfully parsed {} origins", origin_list.len());
-            CorsLayer::new()
-                .allow_origin(origin_list)
-                .allow_headers(vec![
-                    header::CONTENT_TYPE,
-                    header::AUTHORIZATION,
-                    header::ACCEPT,
-                    HeaderName::from_static("x-session-id"),
-                    HeaderName::from_static("mcp-session-id"),
-                    HeaderName::from_static("mcp-protocol-version"),
-                ])
-                .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-                .expose_headers([
-                    HeaderName::from_static("mcp-session-id"),
-                    HeaderName::from_static("mcp-protocol-version"),
-                    HeaderName::from_static("x-session-id"),
-                ])
-                .allow_credentials(true)
-        }
-        Ok(_) => {
-            tracing::warn!("ALLOWED_ORIGINS is empty after parsing, falling back to permissive CORS");
-            CorsLayer::permissive()
-        }
-        Err(e) => {
-            tracing::error!("Failed to parse ALLOWED_ORIGINS '{}': {}. Falling back to permissive CORS", allowed_origins, e);
-            CorsLayer::permissive()
+    if !authorized {
+        if let Some(auth_header) = req
+            .headers()
+            .get(header::AUTHORIZATION)
+            .and_then(|value| value.to_str().ok())
+        {
+            if let Some(token) = auth_header.strip_prefix("Bearer ") {
+                if token == expected {
+                    authorized = true;
+                }
+            }
         }
     }
+
+    if !authorized {
+        tracing::warn!("Unauthorized attempt to access /debug endpoints");
+        let mut response = (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({
+                "error": "unauthorized",
+                "message": "Provide MOP_ADMIN_TOKEN via Mop-Admin-Token header or Authorization: Bearer"
+            })),
+        )
+            .into_response();
+        response.headers_mut().insert(
+            header::WWW_AUTHENTICATE,
+            HeaderValue::from_static("Bearer realm=\"mop-debug\""),
+        );
+        return Ok(response);
+    }
+
+    let mut response = next.run(req).await;
+    response
+        .headers_mut()
+        .insert(header::VARY, HeaderValue::from_static("Authorization"));
+    Ok(response)
 }
 
 async fn build_router(state: AppState) -> Result<Router> {
+    let debug_routes = Router::new()
+        .route("/status", get(debug_status))
+        .route("/missions", get(debug_missions))
+        .route("/sessions", get(debug_sessions))
+        .route("/perceptions", get(debug_perceptions))
+        .route("/sprawl", get(debug_sprawl))
+        .route("/shim", get(debug_shim).post(update_shim))
+        .route_layer(middleware::from_fn(require_admin_token))
+        .with_state(state.clone());
+
     let router = Router::new()
         // WebSocket endpoint for MCP communication
         .route("/ws", get(websocket_handler))
         // HTTP/SSE MCP endpoint for Smithery integration
-        .route("/mcp", get(mcp_get_handler).post(mcp_post_handler).head(mcp_head_handler).options(mcp_options_handler).delete(mcp_delete_handler))
+        .route(
+            "/mcp",
+            get(mcp_get_handler)
+                .post(mcp_post_handler)
+                .head(mcp_head_handler)
+                .options(mcp_options_handler)
+                .delete(mcp_delete_handler),
+        )
         // Well-known MCP configuration endpoint
-        .route("/.well-known/mcp-config", get(well_known_get_handler).post(well_known_post_handler))
+        .route(
+            "/.well-known/mcp-config",
+            get(well_known_get_handler).post(well_known_post_handler),
+        )
         // Health check endpoint
         .route("/", get(health_check))
         .route("/health", get(health_check))
         // Metrics endpoint (if enabled)
         .route("/metrics", get(metrics_handler))
-        // Debug endpoints
-        .route("/debug/status", get(debug_status))
-        .route("/debug/missions", get(debug_missions))
-        .route("/debug/sessions", get(debug_sessions))
-        .route("/debug/perceptions", get(debug_perceptions))
-        .route("/debug/sprawl", get(debug_sprawl))
-        .route("/debug/shim", get(debug_shim).post(update_shim))
+        .nest("/debug", debug_routes)
         // State management
         .with_state(state)
         // Middleware
@@ -512,7 +542,14 @@ async fn mcp_post_handler(
     query: Query<http_mcp::QueryParams>,
     body: String,
 ) -> impl IntoResponse {
-    http_mcp::mcp_handler(axum::http::Method::POST, State(state), headers, query, Some(body)).await
+    http_mcp::mcp_handler(
+        axum::http::Method::POST,
+        State(state),
+        headers,
+        query,
+        Some(body),
+    )
+    .await
 }
 
 /// MCP HTTP HEAD handler (for health checks)
@@ -530,7 +567,14 @@ async fn mcp_options_handler(
     headers: http::HeaderMap,
     query: Query<http_mcp::QueryParams>,
 ) -> impl IntoResponse {
-    http_mcp::mcp_handler(axum::http::Method::OPTIONS, State(state), headers, query, None).await
+    http_mcp::mcp_handler(
+        axum::http::Method::OPTIONS,
+        State(state),
+        headers,
+        query,
+        None,
+    )
+    .await
 }
 
 /// MCP HTTP DELETE handler (for session termination)
@@ -539,7 +583,14 @@ async fn mcp_delete_handler(
     headers: http::HeaderMap,
     query: Query<http_mcp::QueryParams>,
 ) -> impl IntoResponse {
-    http_mcp::mcp_handler(axum::http::Method::DELETE, State(state), headers, query, None).await
+    http_mcp::mcp_handler(
+        axum::http::Method::DELETE,
+        State(state),
+        headers,
+        query,
+        None,
+    )
+    .await
 }
 
 /// Well-known configuration GET handler
@@ -562,7 +613,12 @@ async fn well_known_post_handler(
 /// Health check endpoint
 async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
     let session_count = state.active_sessions.len();
-    let engine_stats = state.casial_engine.read().await.get_coordination_history().len();
+    let engine_stats = state
+        .casial_engine
+        .read()
+        .await
+        .get_coordination_history()
+        .len();
 
     axum::Json(serde_json::json!({
         "status": "healthy",
@@ -788,7 +844,7 @@ async fn debug_sprawl(
 async fn debug_shim(State(state): State<AppState>) -> impl IntoResponse {
     let shim = state.pitfall_shim.read().await;
     let config = shim.get_config();
-    
+
     axum::Json(serde_json::json!({
         "shim_status": {
             "enabled": config.enabled,
@@ -819,14 +875,14 @@ async fn update_shim(
 ) -> impl IntoResponse {
     let mut shim = state.pitfall_shim.write().await;
     shim.update_config(new_config);
-    
+
     (
         axum::http::StatusCode::OK,
         axum::Json(serde_json::json!({
             "status": "success",
             "message": "Shim configuration updated",
             "new_config": shim.get_config()
-        }))
+        })),
     )
 }
 
@@ -904,7 +960,6 @@ mod tests {
     use super::*;
     use std::env;
 
-
     #[test]
     fn test_cors_layer_empty() {
         env::remove_var("ALLOWED_ORIGINS");
@@ -921,7 +976,10 @@ mod tests {
 
     #[test]
     fn test_cors_layer_valid_origins() {
-        env::set_var("ALLOWED_ORIGINS", "https://example.com,http://localhost:5173");
+        env::set_var(
+            "ALLOWED_ORIGINS",
+            "https://example.com,http://localhost:5173",
+        );
         let _cors = create_cors_layer();
         // Should create layer with specific origins without panicking
     }
@@ -942,7 +1000,10 @@ mod tests {
 
     #[test]
     fn test_cors_layer_mixed_valid_invalid() {
-        env::set_var("ALLOWED_ORIGINS", "https://example.com,invalid@url,http://localhost:3000");
+        env::set_var(
+            "ALLOWED_ORIGINS",
+            "https://example.com,invalid@url,http://localhost:3000",
+        );
         let _cors = create_cors_layer();
         // Should fall back to permissive layer due to invalid origin
     }

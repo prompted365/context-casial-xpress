@@ -5,10 +5,13 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
-use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
+use tokio::{
+    runtime::{Handle, Runtime},
+    sync::RwLock,
+};
 
 /// Tool specification with federation metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,7 +31,10 @@ pub struct ToolSpec {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ToolSource {
     Local,
-    Federated { server_id: String, server_url: String },
+    Federated {
+        server_id: String,
+        server_url: String,
+    },
 }
 
 /// Tool registry for managing local and federated tools
@@ -85,17 +91,7 @@ impl ToolRegistry {
         let tool_arc = Arc::new(tool_with_hash);
         self.tools.insert(tool_name.clone(), tool_arc.clone());
 
-        // Update metrics
-        {
-            let mut metrics = self.metrics.write().await;
-            metrics.total_tools = self.tools.len();
-            metrics.local_tools = self
-                .tools
-                .iter()
-                .filter(|entry| matches!(entry.value().source, ToolSource::Local))
-                .count();
-            metrics.federated_tools = metrics.total_tools - metrics.local_tools;
-        }
+        self.refresh_metrics_async().await;
 
         // Notify listeners
         let event = if is_update {
@@ -133,20 +129,55 @@ impl ToolRegistry {
             .collect()
     }
 
+    fn compute_metrics_counts(&self) -> (usize, usize, usize) {
+        let total_tools = self.tools.len();
+        let local_tools = self
+            .tools
+            .iter()
+            .filter(|entry| matches!(entry.value().source, ToolSource::Local))
+            .count();
+        let federated_tools = total_tools.saturating_sub(local_tools);
+        (total_tools, local_tools, federated_tools)
+    }
+
+    async fn refresh_metrics_async(&self) {
+        let (total_tools, local_tools, federated_tools) = self.compute_metrics_counts();
+        let mut metrics = self.metrics.write().await;
+        metrics.total_tools = total_tools;
+        metrics.local_tools = local_tools;
+        metrics.federated_tools = federated_tools;
+    }
+
+    fn refresh_metrics_sync(&self) {
+        let (total_tools, local_tools, federated_tools) = self.compute_metrics_counts();
+
+        if let Ok(mut metrics) = self.metrics.try_write() {
+            metrics.total_tools = total_tools;
+            metrics.local_tools = local_tools;
+            metrics.federated_tools = federated_tools;
+        } else {
+            let metrics = self.metrics.clone();
+            let update = async move {
+                let mut guard = metrics.write().await;
+                guard.total_tools = total_tools;
+                guard.local_tools = local_tools;
+                guard.federated_tools = federated_tools;
+            };
+
+            if let Ok(handle) = Handle::try_current() {
+                handle.spawn(update);
+            } else {
+                Runtime::new()
+                    .expect("failed to create tokio runtime for registry metrics update")
+                    .block_on(update);
+            }
+        }
+    }
+
     /// Remove a tool by name
     pub async fn remove_tool(&self, name: &str) -> Option<Arc<ToolSpec>> {
         if let Some((_, tool)) = self.tools.remove(name) {
-            // Update metrics
-            {
-                let mut metrics = self.metrics.write().await;
-                metrics.total_tools = self.tools.len();
-                metrics.local_tools = self
-                    .tools
-                    .iter()
-                    .filter(|entry| matches!(entry.value().source, ToolSource::Local))
-                    .count();
-                metrics.federated_tools = metrics.total_tools - metrics.local_tools;
-            }
+            self.refresh_metrics_async().await;
 
             // Notify listeners
             self.notify_listeners(RegistryChangeEvent::ToolRemoved(name.to_string()));
@@ -172,17 +203,7 @@ impl ToolRegistry {
             self.tools.remove(tool_name);
         }
 
-        // Update metrics
-        {
-            let mut metrics = self.metrics.write().await;
-            metrics.total_tools = self.tools.len();
-            metrics.local_tools = self
-                .tools
-                .iter()
-                .filter(|entry| matches!(entry.value().source, ToolSource::Local))
-                .count();
-            metrics.federated_tools = metrics.total_tools - metrics.local_tools;
-        }
+        self.refresh_metrics_async().await;
 
         // Notify listeners
         if !tools_to_remove.is_empty() {
@@ -200,13 +221,16 @@ impl ToolRegistry {
     ) -> Result<(), Vec<String>> {
         use jsonschema::JSONSchema;
 
-        let tool = self.get_tool(tool_name).ok_or_else(|| {
-            vec![format!("Tool '{}' not found in registry", tool_name)]
-        })?;
+        let tool = self
+            .get_tool(tool_name)
+            .ok_or_else(|| vec![format!("Tool '{}' not found in registry", tool_name)])?;
 
         // Compile JSON schema
         let schema = JSONSchema::compile(&tool.input_schema).map_err(|e| {
-            vec![format!("Invalid JSON schema for tool '{}': {}", tool_name, e)]
+            vec![format!(
+                "Invalid JSON schema for tool '{}': {}",
+                tool_name, e
+            )]
         })?;
 
         // Validate arguments
@@ -283,21 +307,21 @@ impl ToolRegistry {
     /// Compute SHA-256 hash of tool specifications
     fn compute_tool_hash(&self, tool: &ToolSpec) -> String {
         let mut hasher = Sha256::new();
-        
+
         // Hash the core schema components
         if let Ok(schema_bytes) = serde_json::to_vec(&tool.input_schema) {
             hasher.update(&schema_bytes);
         }
-        
+
         if let Some(ref output_schema) = tool.output_schema {
             if let Ok(output_bytes) = serde_json::to_vec(output_schema) {
                 hasher.update(&output_bytes);
             }
         }
-        
+
         hasher.update(tool.name.as_bytes());
         hasher.update(tool.description.as_bytes());
-        
+
         format!("{:x}", hasher.finalize())
     }
 
@@ -538,9 +562,11 @@ impl ToolRegistry {
         let tool_name = tool.name.clone();
         self.tools.insert(tool_name.clone(), Arc::new(tool));
 
+        self.refresh_metrics_sync();
+
         // Log registration for debugging
         tracing::debug!("Tool registered synchronously: {}", tool_name);
-        
+
         Ok(())
     }
 }
@@ -561,10 +587,10 @@ mod tests {
         assert_eq!(registry.get_all_tools().len(), 0);
     }
 
-    #[test]
-    fn test_tool_registration() {
+    #[tokio::test]
+    async fn test_tool_registration() {
         let registry = ToolRegistry::new();
-        
+
         let tool = ToolSpec {
             name: "test_tool".to_string(),
             description: "A test tool".to_string(),
@@ -577,17 +603,17 @@ mod tests {
             metadata: serde_json::json!({}),
         };
 
-        registry.register_tool(tool).unwrap();
-        
+        registry.register_tool_sync(tool).unwrap();
+
         let retrieved = registry.get_tool("test_tool").unwrap();
         assert_eq!(retrieved.name, "test_tool");
         assert!(!retrieved.spec_hash.is_empty());
     }
 
-    #[test]
-    fn test_tool_validation() {
+    #[tokio::test]
+    async fn test_tool_validation() {
         let registry = ToolRegistry::new();
-        
+
         let tool = ToolSpec {
             name: "test_tool".to_string(),
             description: "A test tool".to_string(),
@@ -606,24 +632,35 @@ mod tests {
             metadata: serde_json::json!({}),
         };
 
-        registry.register_tool(tool).unwrap();
+        registry.register_tool_sync(tool).unwrap();
 
         // Valid arguments
         let valid_args = serde_json::json!({"query": "test query"});
-        assert!(registry.validate_tool_arguments("test_tool", &valid_args).is_ok());
+        assert!(registry
+            .validate_tool_arguments("test_tool", &valid_args)
+            .await
+            .is_ok());
 
         // Invalid arguments (missing required field)
         let invalid_args = serde_json::json!({"other_field": "value"});
-        assert!(registry.validate_tool_arguments("test_tool", &invalid_args).is_err());
+        assert!(registry
+            .validate_tool_arguments("test_tool", &invalid_args)
+            .await
+            .is_err());
     }
 
-    #[test]
-    fn test_catalog_generation() {
+    #[tokio::test]
+    async fn test_catalog_generation() {
         let registry = ToolRegistry::new();
         registry.seed_with_local_tools().unwrap();
-        
-        let catalog = registry.generate_catalog();
+
+        let catalog = registry.generate_catalog().await;
         assert!(catalog["catalog"]["tools"].is_array());
-        assert!(catalog["catalog"]["summary"]["totalTools"].as_u64().unwrap() > 0);
+        assert!(
+            catalog["catalog"]["summary"]["totalTools"]
+                .as_u64()
+                .unwrap()
+                > 0
+        );
     }
 }

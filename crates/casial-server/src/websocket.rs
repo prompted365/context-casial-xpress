@@ -268,7 +268,7 @@ impl WebSocketHandler {
 
         // Get all tools from registry (local + federated)
         let all_tools = self.state.tool_registry.get_all_tools();
-        
+
         let tools_json: Vec<serde_json::Value> = all_tools
             .iter()
             .map(|tool| {
@@ -316,7 +316,9 @@ impl WebSocketHandler {
     ) -> Result<mcp::JsonRpcResponse> {
         debug!("📖 Reading resource");
 
-        let uri = request.params.get("uri")
+        let uri = request
+            .params
+            .get("uri")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing URI parameter"))?;
 
@@ -329,8 +331,8 @@ impl WebSocketHandler {
                 request.id,
                 -32601,
                 "Resource not found",
-                Some(serde_json::json!({"uri": uri}))
-            ))
+                Some(serde_json::json!({"uri": uri})),
+            )),
         }
     }
 
@@ -352,7 +354,8 @@ impl WebSocketHandler {
             .unwrap_or(serde_json::json!({}));
 
         // Extract execution mode
-        let mode = args.get("mode")
+        let mode = args
+            .get("mode")
             .and_then(|v| v.as_str())
             .unwrap_or("execute");
 
@@ -362,7 +365,12 @@ impl WebSocketHandler {
         );
 
         // Validate tool arguments against schema
-        if let Err(validation_errors) = self.state.tool_registry.validate_tool_arguments(tool_name, &args).await {
+        if let Err(validation_errors) = self
+            .state
+            .tool_registry
+            .validate_tool_arguments(tool_name, &args)
+            .await
+        {
             return Ok(mcp::create_error_response(
                 request.id,
                 -32602,
@@ -378,14 +386,18 @@ impl WebSocketHandler {
             let federation_guard = self.state.federation_manager.read().await;
             if let Some(federation_manager) = federation_guard.as_ref() {
                 use crate::federation::ExecutionMode;
-                
+
                 let execution_mode = match mode {
                     "plan" => ExecutionMode::Plan,
                     "hybrid" => ExecutionMode::Hybrid,
                     _ => ExecutionMode::Execute,
                 };
 
-                Some(federation_manager.route_tool_call(tool_name, args.clone(), execution_mode).await)
+                Some(
+                    federation_manager
+                        .route_tool_call(tool_name, args.clone(), execution_mode)
+                        .await,
+                )
             } else {
                 None
             }
@@ -403,7 +415,10 @@ impl WebSocketHandler {
                     return Ok(mcp::create_success_response(request.id, response_content));
                 }
                 Err(e) => {
-                    warn!("Federation routing failed, falling back to local execution: {}", e);
+                    warn!(
+                        "Federation routing failed, falling back to local execution: {}",
+                        e
+                    );
                 }
             }
         }
@@ -703,7 +718,7 @@ impl WebSocketHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::ServerConfig;
+    use crate::{config::ServerConfig, pitfall_shim::PitfallAvoidanceShim};
 
     #[test]
     fn test_websocket_session_creation() {
@@ -716,7 +731,8 @@ mod tests {
     #[tokio::test]
     async fn test_websocket_handler_creation() {
         let config = ServerConfig::default();
-        let state = AppState::new(config);
+        let shim = PitfallAvoidanceShim::default();
+        let state = AppState::new(config, shim);
         let handler = WebSocketHandler::new(state);
 
         // Handler should be created successfully

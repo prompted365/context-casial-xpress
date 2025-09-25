@@ -117,10 +117,10 @@
   
   "configuration": {
     "start_server": "casial-server start --mission missions/exa-mcp-orchestration.yaml",
-    "api_key": "GiftFromUbiquityF2025",
+    "api_key": "${MOP_API_KEY:-DEMO_KEY_PUBLIC}",
     "endpoints": {
       "websocket": "ws://localhost:8080/ws",
-      "http_sse": "http://localhost:8080/mcp?apiKey=GiftFromUbiquityF2025&agent_role=researcher",
+      "http_sse": "http://localhost:8080/mcp?apiKey=${MOP_API_KEY:-DEMO_KEY_PUBLIC}&agent_role=researcher",
       "shim_config": "http://localhost:8080/debug/shim"
     }
   },

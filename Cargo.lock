@@ -408,6 +408,7 @@ dependencies = [
  "metrics-exporter-prometheus",
  "notify",
  "parking_lot",
+ "rand",
  "serde",
  "serde_json",
  "serde_yaml",
