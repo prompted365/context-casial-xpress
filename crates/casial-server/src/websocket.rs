@@ -336,7 +336,32 @@ impl WebSocketHandler {
         }
     }
 
-    /// Handle tools/call method with consciousness-aware coordination
+    /// Process a "tools/call" JSON-RPC request by validating arguments, attempting federation routing,
+    /// and falling back to local consciousness-aware coordination and tool execution.
+    ///
+    /// The response contains the tool execution result and a `consciousness_coordination` object
+    /// describing coordination details (applied flag, injected content, activated rules, used templates,
+    /// paradoxes detected and handling, and metadata). If federation routing succeeds, its result is
+    /// returned; validation failures produce a JSON-RPC invalid-parameters error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Construct a JSON-RPC request for calling a tool named "example_tool".
+    /// let request = mcp::JsonRpcRequest {
+    ///     id: Some(serde_json::json!(1)),
+    ///     method: "tools/call".to_string(),
+    ///     params: serde_json::json!({
+    ///         "name": "example_tool",
+    ///         "arguments": { "foo": "bar" },
+    ///         "mode": "execute"
+    ///     }),
+    /// };
+    ///
+    /// // `handler` is an instance of WebSocketHandler available in the surrounding context.
+    /// // The call is async and returns a `mcp::JsonRpcResponse`.
+    /// // let response = tokio::runtime::Handle::current().block_on(handler.handle_tools_call(request, session_id)).unwrap();
+    /// ```
     async fn handle_tools_call(
         &self,
         request: mcp::JsonRpcRequest,
