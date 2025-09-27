@@ -12,6 +12,7 @@ readme = "README.md"
 description = "WASM bindings for universal consciousness-aware context coordination in web browsers and JavaScript environments"
 keywords = ["wasm", "webassembly", "browser", "javascript", "ai"]
 categories = ["wasm", "web-programming", "api-bindings"]
+build = "build.rs"
 
 [lib]
 crate-type = ["cdylib"]

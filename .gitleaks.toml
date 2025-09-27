@@ -1,0 +1,10 @@
+title = "context-casial-xpress gitleaks config"
+
+[allowlist]
+  description = "Allow test Authorization headers"
+  paths = [
+    "test-smithery-compatibility.sh"
+  ]
+  regexes = [
+    "Authorization: Bearer wrong-key"
+  ]

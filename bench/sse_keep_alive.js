@@ -9,6 +9,10 @@ const KEEP_ALIVE_WINDOW = Number(__ENV.MOP_SSE_WINDOW_MS || 5000);
 export const options = {
   vus: Number(__ENV.MOP_SSE_VUS || 5),
   iterations: Number(__ENV.MOP_SSE_ITERATIONS || 20),
+  thresholds: {
+    sse_failures: ['rate<0.05'],
+  },
+  discardResponseBodies: true,
 };
 
 const failures = new Rate('sse_failures');

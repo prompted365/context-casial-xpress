@@ -34,6 +34,8 @@ casial-server start \
 }
 ```
 
+Clients should send the value of `config.apiKey` as an `Authorization: Bearer` header on every MCP request; the config field is purely a client-side convenience.
+
 When configuring clients programmatically, prefer environment variables and fall back to the demo key only for local testing:
 
 ```javascript
@@ -226,7 +228,7 @@ All augmentations are logged with:
       "args": ["path/to/casial-mcp-client.js"],
       "env": {
         "CASIAL_URL": "http://localhost:8080/mcp",
-        "CASIAL_API_KEY": "REPLACE_WITH_YOUR_API_KEY",
+        "MOP_API_KEY": "REPLACE_WITH_YOUR_API_KEY",
         "AGENT_ROLE": "researcher"
       }
     }

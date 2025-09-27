@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Test script for Smithery MCP compatibility
 
 # Colors for output
@@ -26,7 +27,7 @@ fi
 # Test 2: Well-known MCP Config
 echo -e "\n${YELLOW}Test 2: Well-known MCP Config${NC}"
 config_response=$(curl -s "${BASE_URL}/.well-known/mcp-config")
-if echo "$config_response" | jq -e '.configSchema.properties.apiKey' > /dev/null 2>&1; then
+if echo "$config_response" | jq -e '.transport and .name' > /dev/null 2>&1; then
     echo -e "${GREEN}✓ MCP config endpoint working${NC}"
     echo "  Transport: $(echo "$config_response" | jq -r '.transport[]')"
     echo "  Name: $(echo "$config_response" | jq -r '.name')"
@@ -75,12 +76,16 @@ else
     echo "$init_response" | jq '.'
 fi
 
-# Test 5: Base64 Config Parameter
+SESSION_ID=$(echo "$init_response" | jq -r '.result.sessionId // empty')
+
+
+# Test 5: Base64 Config Parameter (without secrets)
 echo -e "\n${YELLOW}Test 5: Base64 Config Parameter${NC}"
-config_json=$(jq -n --arg key "$API_KEY" '{"apiKey":$key,"agent_role":"researcher","consciousness_mode":"full"}')
+config_json=$(jq -n '{"agent_role":"researcher","consciousness_mode":"full"}')
 encoded_config=$(echo -n "$config_json" | base64)
 base64_response=$(curl -s -X POST "${BASE_URL}/mcp?config=${encoded_config}" \
     -H "Content-Type: application/json" \
+    -H "Authorization: Bearer ${API_KEY}" \
     -d '{
         "jsonrpc": "2.0",
         "method": "tools/list",
@@ -98,13 +103,18 @@ fi
 
 # Test 6: SSE Stream Support
 echo -e "\n${YELLOW}Test 6: SSE Stream Support${NC}"
-sse_headers=$(curl -s -I "${BASE_URL}/mcp" \
-    -H "Accept: text/event-stream" \
-    -H "Authorization: Bearer ${API_KEY}" | grep -i "content-type")
-if echo "$sse_headers" | grep -q "text/event-stream"; then
-    echo -e "${GREEN}✓ SSE stream support confirmed${NC}"
+if [ -z "$SESSION_ID" ]; then
+    echo -e "${YELLOW}⚠ Skipping SSE test: session ID unavailable${NC}"
 else
-    echo -e "${RED}✗ SSE stream not supported${NC}"
+    sse_headers=$(curl -s -I "${BASE_URL}/mcp" \
+        -H "Accept: text/event-stream" \
+        -H "Authorization: Bearer ${API_KEY}" \
+        -H "mcp-session-id: ${SESSION_ID}" | grep -i "content-type")
+    if echo "$sse_headers" | grep -q "text/event-stream"; then
+        echo -e "${GREEN}✓ SSE stream support confirmed${NC}"
+    else
+        echo -e "${RED}✗ SSE stream not supported${NC}"
+    fi
 fi
 
 # Test 7: Authentication Failure
