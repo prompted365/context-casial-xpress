@@ -209,6 +209,10 @@ pub fn apply_cors_headers(headers: &mut HeaderMap, request_headers: &HeaderMap) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        config::ServerConfig, mcp::JsonRpcRequest, pitfall_shim::PitfallAvoidanceShim, AppState,
+    };
+    use serde_json::json;
 
     fn reset_env() {
         std::env::remove_var("ALLOWED_ORIGINS");
@@ -279,6 +283,78 @@ mod tests {
             );
         }
         reset_sampling_flag();
+    }
+
+    fn build_state() -> AppState {
+        let config = ServerConfig::default();
+        let shim = PitfallAvoidanceShim::default();
+        AppState::new(config, shim)
+    }
+
+    #[tokio::test]
+    async fn resources_list_includes_tool_catalog() {
+        let state = build_state();
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(1),
+            method: "resources/list".to_string(),
+            params: json!({}),
+        };
+
+        let response = super::handle_resources_list(&state, request).await;
+        let result = response.result.expect("expected resources payload");
+        let resources = result
+            .get("resources")
+            .and_then(|value| value.as_array())
+            .expect("resources should be an array");
+
+        assert!(resources
+            .iter()
+            .any(|entry| entry.get("uri") == Some(&json!("mop://tools/catalog"))));
+    }
+
+    #[tokio::test]
+    async fn resources_read_returns_catalog_contents() {
+        let state = build_state();
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(2),
+            method: "resources/read".to_string(),
+            params: json!({ "uri": "mop://tools/catalog" }),
+        };
+
+        let response = super::handle_resources_read(&state, request).await;
+        let result = response.result.expect("expected catalog result");
+        let contents = result
+            .get("contents")
+            .and_then(|value| value.as_array())
+            .expect("contents should be an array");
+        let catalog_entry = contents.first().expect("catalog entry missing");
+
+        assert_eq!(
+            catalog_entry.get("uri"),
+            Some(&json!("mop://tools/catalog"))
+        );
+
+        let payload = catalog_entry
+            .get("text")
+            .and_then(|value| value.as_str())
+            .map(|text| {
+                serde_json::from_str::<serde_json::Value>(text).expect("valid catalog json")
+            })
+            .expect("catalog text payload");
+
+        let tools = payload
+            .get("tools")
+            .and_then(|value| value.as_array())
+            .expect("tools array");
+        let total_tools = payload
+            .get("totalTools")
+            .and_then(|value| value.as_u64())
+            .expect("totalTools count");
+
+        assert_eq!(tools.len() as u64, total_tools);
+        assert!(total_tools > 0, "expected seeded tools to be advertised");
     }
 }
 
@@ -1455,6 +1531,13 @@ async fn handle_resources_list(_state: &AppState, request: JsonRpcRequest) -> Js
 
     let resources = vec![
         json!({
+            "uri": "mop://tools/catalog",
+            "name": "Tool Catalog",
+            "title": "Available MCP Tools",
+            "description": "Complete catalog of tools registered with the server, including federation metadata",
+            "mimeType": "application/json"
+        }),
+        json!({
             "uri": "mop://orchestration/context",
             "name": "Current Orchestration Context",
             "title": "Live Orchestration Context",
@@ -1506,6 +1589,53 @@ async fn handle_resources_read(state: &AppState, request: JsonRpcRequest) -> Jso
     };
 
     let contents = match params.uri.as_str() {
+        "mop://tools/catalog" => {
+            let tools = state.tool_registry.get_all_tools();
+
+            let catalog: Vec<Value> = tools
+                .into_iter()
+                .map(|tool| {
+                    let tool = tool.as_ref();
+                    let source = match &tool.source {
+                        crate::registry::ToolSource::Local => json!({ "type": "local" }),
+                        crate::registry::ToolSource::Federated {
+                            server_id,
+                            server_url,
+                        } => {
+                            json!({
+                                "type": "federated",
+                                "serverId": server_id,
+                                "serverUrl": server_url,
+                            })
+                        }
+                    };
+
+                    json!({
+                        "name": tool.name,
+                        "description": tool.description,
+                        "inputSchema": tool.input_schema,
+                        "outputSchema": tool.output_schema,
+                        "source": source,
+                        "specVersion": tool.spec_version,
+                        "specHash": tool.spec_hash,
+                        "lastUpdated": tool.last_updated.to_rfc3339(),
+                        "metadata": tool.metadata,
+                    })
+                })
+                .collect();
+
+            let payload = json!({
+                "generatedAt": chrono::Utc::now().to_rfc3339(),
+                "totalTools": catalog.len(),
+                "tools": catalog,
+            });
+
+            vec![json!({
+                "uri": params.uri.clone(),
+                "mimeType": "application/json",
+                "text": serde_json::to_string_pretty(&payload).unwrap(),
+            })]
+        }
         "mop://orchestration/context" => {
             let metrics = state.metrics_collector.read().await.get_current_metrics();
             vec![json!({
@@ -1524,6 +1654,28 @@ async fn handle_resources_read(state: &AppState, request: JsonRpcRequest) -> Jso
                     "orchestration_mode": "consciousness-aware",
                     "shim_active": state.pitfall_shim.read().await.is_enabled()
                 })).unwrap()
+            })]
+        }
+        "mop://orchestration/history" => {
+            let engine = state.casial_engine.read().await;
+            let history = engine.get_coordination_history();
+            drop(engine);
+
+            let applied_events = history.iter().filter(|entry| entry.applied).count();
+            let recent_sample: Vec<_> = history.iter().take(10).cloned().collect();
+
+            let payload = json!({
+                "generatedAt": chrono::Utc::now().to_rfc3339(),
+                "totalEvents": history.len(),
+                "appliedEvents": applied_events,
+                "recentSample": recent_sample,
+                "notes": "Sample includes up to 10 of the most recently recorded coordination events",
+            });
+
+            vec![json!({
+                "uri": params.uri.clone(),
+                "mimeType": "application/json",
+                "text": serde_json::to_string_pretty(&payload).unwrap(),
             })]
         }
         "mop://consciousness/state" => {
