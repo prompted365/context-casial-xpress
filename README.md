@@ -220,38 +220,6 @@ wasm-pack build crates/casial-wasm --target web
 # Deploy to Cloudflare Workers, Vercel Edge, etc.
 ```
 
-## 📊 Performance Benchmarks
-
-| Metric | Performance |
-|--------|-------------|
-| **Concurrent WebSocket Connections** | 10,000+ |
-| **HTTP/SSE MCP Requests** | 5,000 req/sec |
-| **Shim Augmentation Latency** | < 0.1ms |
-| **Paradox Detection Latency** | < 1ms |
-| **Context Coordination Throughput** | 50,000 ops/sec |
-| **Memory Usage (Production)** | < 256MB |
-| **Consciousness Layer Switching** | < 100μs |
-| **Substrate Optimization Cycles** | 60/sec |
-
-## 🤝 Contributing
-
-We welcome contributions to the consciousness-computation movement!
-
-- **🐛 Issues**: [GitHub Issues](https://github.com/prompted-llc/meta-orchestration-protocol/issues)
-- **💡 Discussions**: [GitHub Discussions](https://github.com/prompted-llc/meta-orchestration-protocol/discussions)
-- **💬 Community**: [Discord](https://discord.gg/ubiquity-os)
-- **📧 Contact**: engineering@promptedllc.com
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
-
-## 🌍 Ecosystem
-
-Meta-Orchestration Protocol (MOP) is the flagship component of the **Ubiquity OS ecosystem**:
-
-- **[Ubiquity OS](https://ubiquity.os)**: The consciousness-aware computing platform
-- **[Prompted LLC](https://promptedllc.com)**: Advanced AI solutions and consulting  
-- **[Smithery Registry](https://smithery.ai)**: Component distribution and discovery
-- **[Railway Platform](https://railway.app)**: Preferred deployment infrastructure
 
 ## 📄 License
 
@@ -265,33 +233,6 @@ Meta-Orchestration Protocol (MOP) is released under a **Fair Use license** that 
 
 **Commercial licensing** available through Prompted LLC for enterprise deployments.
 
-## 📈 Roadmap
-
-### Q1 2024: Foundation
-- [x] Core consciousness substrate implementation
-- [x] WebSocket MCP server with enterprise features
-- [x] WASM bindings for universal deployment
-- [x] Production-ready Docker/Railway deployment
-- [x] Comprehensive documentation and GTM materials
-
-### Q2 2024: Ecosystem Integration
-- [ ] Ubiquity OS deep integration and certification
-- [ ] AI tool marketplace with 25+ native integrations
-- [ ] Advanced monitoring with Grafana dashboards
-- [ ] Enterprise security and compliance features
-
-### Q3 2024: Scale & Performance  
-- [ ] Distributed substrate with multi-region coordination
-- [ ] Advanced paradox resolution with ML integration
-- [ ] Edge-optimized WASM runtime performance
-- [ ] Enterprise customer pilot programs
-
-### Q4 2024: Enterprise Ready
-- [ ] Multi-tenant architecture with isolation
-- [ ] Advanced analytics and consciousness insights
-- [ ] Professional services and support tiers
-- [ ] Industry-specific solution templates
-
 ## 🏆 Recognition
 
 - **🥇 Ubiquity OS Flagship Component** - Official consciousness-computation integration
@@ -301,14 +242,7 @@ Meta-Orchestration Protocol (MOP) is released under a **Fair Use license** that 
 
 ---
 
-## 🌟 Getting Started
 
-Ready to experience consciousness-aware computing?
-
-1. **📖 Read the docs**: [docs/README.md](docs/README.md)
-2. **🚀 Quick deploy**: [docs/tutorials/quickstart.md](docs/tutorials/quickstart.md)
-3. **💼 Enterprise demo**: engineering@promptedllc.com
-4. **🤝 Join community**: [discord.gg/ubiquity-os](https://discord.gg/ubiquity-os)
 
 ---
 
