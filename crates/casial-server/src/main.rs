@@ -963,6 +963,21 @@ async fn show_status(endpoint: String) -> Result<()> {
     Ok(())
 }
 
+/// Serial guard for tests that mutate process-global env vars
+/// (`ALLOWED_ORIGINS`, `MOP_ENABLE_SAMPLING`). `cargo test` runs tests in
+/// parallel within one process, so concurrent set/remove + read across modules
+/// races. Every such test holds this lock for its full body.
+#[cfg(test)]
+pub(crate) mod test_env_guard {
+    use std::sync::{Mutex, MutexGuard};
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    pub(crate) fn lock() -> MutexGuard<'static, ()> {
+        ENV_LOCK.lock().unwrap_or_else(|poison| poison.into_inner())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -975,6 +990,7 @@ mod tests {
 
     #[test]
     fn test_cors_layer_empty() {
+        let _env = crate::test_env_guard::lock();
         env::remove_var("ALLOWED_ORIGINS");
         let _cors = create_cors_layer();
         // Should create permissive layer without panicking
@@ -982,6 +998,7 @@ mod tests {
 
     #[test]
     fn test_cors_layer_wildcard() {
+        let _env = crate::test_env_guard::lock();
         env::set_var("ALLOWED_ORIGINS", "*");
         let _cors = create_cors_layer();
         // Should create layer with Any origin without panicking
@@ -989,6 +1006,7 @@ mod tests {
 
     #[test]
     fn test_cors_layer_valid_origins() {
+        let _env = crate::test_env_guard::lock();
         env::set_var(
             "ALLOWED_ORIGINS",
             "https://example.com,http://localhost:5173",
@@ -999,6 +1017,7 @@ mod tests {
 
     #[test]
     fn test_cors_layer_invalid_origin() {
+        let _env = crate::test_env_guard::lock();
         env::set_var("ALLOWED_ORIGINS", "invalid@url");
         let _cors = create_cors_layer();
         // Should fall back to permissive layer without panicking
@@ -1006,6 +1025,7 @@ mod tests {
 
     #[test]
     fn test_cors_layer_whitespace() {
+        let _env = crate::test_env_guard::lock();
         env::set_var("ALLOWED_ORIGINS", "  *  ");
         let _cors = create_cors_layer();
         // Should handle whitespace and create Any origin layer
@@ -1013,6 +1033,7 @@ mod tests {
 
     #[test]
     fn test_cors_layer_mixed_valid_invalid() {
+        let _env = crate::test_env_guard::lock();
         env::set_var(
             "ALLOWED_ORIGINS",
             "https://example.com,invalid@url,http://localhost:3000",

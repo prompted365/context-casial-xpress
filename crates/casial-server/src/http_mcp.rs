@@ -224,6 +224,7 @@ mod tests {
 
     #[test]
     fn cors_policy_defaults_to_any_when_env_missing() {
+        let _env = crate::test_env_guard::lock();
         reset_env();
         let policy = CorsPolicy::from_env();
         let origin = policy.resolve_origin(&HeaderMap::new());
@@ -234,6 +235,7 @@ mod tests {
 
     #[test]
     fn cors_policy_matches_listed_origin() {
+        let _env = crate::test_env_guard::lock();
         std::env::set_var("ALLOWED_ORIGINS", "https://example.com,https://other.test");
         let policy = CorsPolicy::from_env();
 
@@ -251,6 +253,7 @@ mod tests {
 
     #[test]
     fn cors_context_suppresses_credentials_for_wildcard() {
+        let _env = crate::test_env_guard::lock();
         std::env::set_var("ALLOWED_ORIGINS", "*");
         let policy = CorsPolicy::from_env();
         let origin = policy.resolve_origin(&HeaderMap::new());
@@ -268,12 +271,14 @@ mod tests {
 
     #[test]
     fn sampling_disabled_by_default() {
+        let _env = crate::test_env_guard::lock();
         reset_sampling_flag();
         assert!(!super::sampling_feature_enabled());
     }
 
     #[test]
     fn sampling_enabled_for_truthy_values() {
+        let _env = crate::test_env_guard::lock();
         for value in ["true", "1", "yes"] {
             std::env::set_var("MOP_ENABLE_SAMPLING", value);
             assert!(
