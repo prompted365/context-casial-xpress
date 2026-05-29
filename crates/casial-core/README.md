@@ -114,8 +114,8 @@ This product includes Context-Casial-Xpress Core, developed by Prompted LLC
 
 We welcome contributions to `casial-core`! By contributing, you agree to license your contributions under both MIT and Apache-2.0 licenses.
 
-- **Issues**: [GitHub Issues](https://github.com/prompted-llc/context-casial-xpress/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/prompted-llc/context-casial-xpress/discussions)
+- **Issues**: [GitHub Issues](https://github.com/prompted365/context-casial-xpress/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/prompted365/context-casial-xpress/discussions)
 - **Contributing Guide**: [CONTRIBUTING.md](../../CONTRIBUTING.md)
 
 ## Related Projects

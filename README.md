@@ -38,8 +38,8 @@ Meta-Orchestration Protocol (MOP) is a production-ready, consciousness-aware MCP
 
 ```bash
 # Clone and build
-git clone https://github.com/prompted-llc/meta-orchestration-protocol.git
-cd meta-orchestration-protocol
+git clone https://github.com/prompted365/context-casial-xpress.git
+cd context-casial-xpress
 cargo build --release
 
 # Configure
@@ -139,7 +139,7 @@ graph TB
 ## 📁 Project Structure
 
 ```
-meta-orchestration-protocol/
+context-casial-xpress/
 ├── 🦀 crates/
 │   ├── casial-core/        # Consciousness substrate (MIT OR Apache-2.0)
 │   ├── casial-server/      # WebSocket MCP server (Fair Use)
@@ -221,6 +221,16 @@ wasm-pack build crates/casial-wasm --target web
 ```
 
 
+## 🌐 Part of the Ubiquity Ecosystem
+
+Context-Casial-Xpress / MOP is a **standalone outpost of Ubiquity** — Prompted LLC's governance-as-substrate platform ([promptedllc.com](https://promptedllc.com)). It runs independently (crates.io · Railway · Smithery.ai) but is a deliberate arm of the broader ecosystem — in the same spirit as Prompted LLC's other Ubiquity surfaces (the Context Grapple Gun governance runtime, the Sovereign Sidecar): each stands on its own while pointing back at the primary Ubiquity federation.
+
+**Two names, one project (dual-register):**
+- **`casial`** — the *engine / crate* register. `casial-core` is the coordination substrate, named for Smeaton's hydraulic lime ("casial") — a material that grows stronger under pressure. This is the published crates.io identity.
+- **MOP (Meta-Orchestration Protocol)** — the *protocol / product* register: the MCP-facing product built on the casial substrate.
+
+**Where it sits:** MOP is the *applied orchestration* layer (MCP swarm coordination + pitfall-avoidance). It is a sibling to — not the same as — the lower-level Ubiquity compute crates (`ubiquity-kernel`, `-quiver`, `-functors`, …). All point home to the primary Ubiquity federation.
+
 ## 📄 License
 
 Meta-Orchestration Protocol (MOP) is released under a **Fair Use license** that encourages innovation while protecting core IP. See [LICENSE.md](LICENSE.md) for full details.
@@ -246,6 +256,6 @@ Meta-Orchestration Protocol (MOP) is released under a **Fair Use license** that 
 
 ---
 
-**Built with ❤️ by [Prompted LLC](https://promptedllc.com) for the [Ubiquity OS](https://ubiquity.os) ecosystem**
+**Built with ❤️ by [Prompted LLC](https://promptedllc.com) for the [Ubiquity](https://promptedllc.com) ecosystem**
 
 *Stronger under pressure, like hydraulic lime* 🏗️

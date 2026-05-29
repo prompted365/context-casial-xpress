@@ -127,12 +127,12 @@ Context-Casial-Xpress uses a **strategic mixed licensing approach** designed to 
 ### Using Core Substrate Only
 ```toml
 [dependencies]
-casial-core = "1.0.0"  # MIT OR Apache-2.0
+casial-core = "0.1.4"  # MIT OR Apache-2.0
 ```
 
 ### Evaluating Complete System
 ```bash
-git clone https://github.com/prompted-llc/context-casial-xpress
+git clone https://github.com/prompted365/context-casial-xpress
 cd context-casial-xpress
 cargo run --bin casial-server  # Fair Use evaluation
 ```
